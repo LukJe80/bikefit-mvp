@@ -1,886 +1,694 @@
 <!doctype html>
 <html lang="pl">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Bikefit MVP (BOK + TYŁ) – DEMO v3.1</title>
-<style>
-  body{margin:0;font-family:system-ui,Arial;background:#0b0b0c;color:#fff}
-  header{padding:12px 16px;background:#141416;border-bottom:1px solid #26262a}
-  h1{margin:0 0 8px 0;font-size:18px}
-  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
-  input,select,button{padding:8px;border-radius:10px;border:1px solid #333;background:#0f0f11;color:#fff}
-  input{width:150px}
-  button{cursor:pointer}
-  .pill{display:inline-block;padding:6px 10px;border-radius:999px;border:1px solid #333;background:#0f0f11}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px}
-  .card{background:#141416;border:1px solid #26262a;border-radius:12px;padding:12px}
-  .full{grid-column:1/-1}
-  video,canvas{width:100%;border-radius:12px;background:#000;margin-top:8px}
-  pre{white-space:pre-wrap;background:#0f0f11;padding:8px;border-radius:10px;border:1px solid #26262a;max-height:220px;overflow:auto}
-  #reco .item{padding:10px;border:1px solid #2a2a2f;border-radius:12px;margin:8px 0;background:#101014}
-  #reco .bad{border-color:#6a2a2a}
-  #reco .warn{border-color:#6a5a2a}
-  #reco .ok{border-color:#2a6a3a}
-  small{opacity:.8}
-  .muted{opacity:.75}
-  .kpi{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
-  .kpi .pill{border-color:#2a2a2f}
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bikefitting MVP (BOK + TYŁ) – DEMO v3.1</title>
 
-  .sessionBar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-  .sessionList{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
-  .snap{border:1px solid #2a2a2f;border-radius:12px;background:#101014;padding:10px}
-  .snapHeader{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-  .tag{padding:4px 8px;border-radius:999px;border:1px solid #2a2a2f;background:#0f0f11;font-size:12px}
+  <style>
+    :root{
+      --bg:#0b0d10;
+      --panel:#111418;
+      --panel2:#0f1216;
+      --line:#1d232b;
+      --txt:#e8edf4;
+      --muted:#a6b0bd;
+      --accent:#ff6a00;
+      --ok:#22c55e;
+      --bad:#ef4444;
+      --warn:#f59e0b;
+      --chip:#1a2028;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:14px;
+      --radius2:18px;
+    }
 
-  .demoGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
-  .demoBox{border:1px solid #2a2a2f;border-radius:12px;background:#101014;padding:10px}
-  .demoBox h3{margin:0 0 8px 0;font-size:14px}
-  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial;
+      background: var(--bg);
+      color: var(--txt);
+    }
 
-  .timeline{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
-  .step{border:1px solid #2a2a2f;border-radius:12px;background:#101014;padding:10px}
-  .stepTop{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px}
-  .stepBtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-  .btnGhost{border-color:#2a2a2f}
-  .btnGood{border-color:#2a6a3a}
-  .btnWarn{border-color:#6a5a2a}
-  .btnBad{border-color:#6a2a2a}
+    .app{
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:100vh;
+    }
 
-  /* Client mode */
-  body.client header,
-  body.client #cardDemo pre,
-  body.client #sessionList details,
-  body.client #debugNote { display:none !important; }
+    .topbar{
+      background: linear-gradient(180deg, rgba(255,106,0,.08), transparent);
+      border:1px solid var(--line);
+      border-radius: var(--radius2);
+      padding:10px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      box-shadow: var(--shadow);
+    }
 
-  body.client main.grid{grid-template-columns:1fr}
-  body.client .card{border-radius:16px}
-  body.client .kpi{justify-content:center}
-  body.client .kpi .pill{font-size:18px;padding:10px 14px}
-  body.client #reco .item{font-size:18px}
-  body.client #reco .item small{font-size:14px}
-</style>
+    .title{
+      font-weight:800;
+      letter-spacing:.3px;
+      margin-right:10px;
+      white-space:nowrap;
+    }
+
+    .row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+
+    .chip{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      padding:6px 10px;
+      border-radius:999px;
+      background: var(--chip);
+      border:1px solid var(--line);
+      color: var(--muted);
+      font-size:13px;
+      white-space:nowrap;
+    }
+
+    .chip b{ color:var(--txt); font-weight:700; }
+
+    .btn{
+      cursor:pointer;
+      border:1px solid var(--line);
+      background: #151a20;
+      color: var(--txt);
+      padding:8px 12px;
+      border-radius:12px;
+      font-weight:700;
+      transition:.15s ease;
+      box-shadow: 0 6px 18px rgba(0,0,0,.25);
+    }
+    .btn:hover{ transform: translateY(-1px); border-color:#2b3340; }
+    .btn:active{ transform: translateY(0px); }
+
+    .btn.accent{ background: linear-gradient(180deg, rgba(255,106,0,.18), rgba(255,106,0,.07)); border-color: rgba(255,106,0,.35); }
+    .btn.good{ background: linear-gradient(180deg, rgba(34,197,94,.18), rgba(34,197,94,.07)); border-color: rgba(34,197,94,.35); }
+
+    .field{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width:180px;
+    }
+    .field label{
+      font-size:12px;
+      color: var(--muted);
+    }
+    .field input, .field select{
+      background:#0f141a;
+      border:1px solid var(--line);
+      color: var(--txt);
+      border-radius:12px;
+      padding:8px 10px;
+      outline:none;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap:10px;
+      min-height:0;
+      flex:1;
+    }
+
+    @media (max-width: 1100px){
+      .grid{ grid-template-columns: 1fr; }
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.02), transparent);
+      border:1px solid var(--line);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      min-height:0;
+      overflow:hidden;
+      display:flex;
+      flex-direction:column;
+    }
+
+    .card h2{
+      margin:0;
+      padding:10px 12px;
+      font-size:14px;
+      letter-spacing:.2px;
+      border-bottom:1px solid var(--line);
+      background: rgba(255,255,255,.02);
+    }
+
+    .card-body{
+      padding:10px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      min-height:0;
+      flex:1;
+    }
+
+    .split{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:10px;
+      min-height:0;
+      flex:1;
+    }
+
+    .preview{
+      border:1px solid var(--line);
+      border-radius: var(--radius2);
+      background:#000;
+      min-height:240px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      position:relative;
+    }
+
+    /* --- FIX: stabilne rysowanie punktów (canvas ma stałe proporcje i nie "rozjeżdża" się przy zmianie rozmiaru) --- */
+    .pointsCanvas{
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4 / 3;   /* bazowy układ demo jest ~800x600 */
+      display:block;
+      background:#000;
+      border-radius:12px;
+    }
+
+    .hint{
+      font-size:12px;
+      color: var(--muted);
+    }
+
+    .tabs{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .tab{
+      cursor:pointer;
+      border:1px solid var(--line);
+      background: #0f141a;
+      color: var(--muted);
+      padding:6px 10px;
+      border-radius:999px;
+      font-weight:700;
+      font-size:12px;
+    }
+
+    .tab.active{
+      background: rgba(255,106,0,.12);
+      border-color: rgba(255,106,0,.35);
+      color: var(--txt);
+    }
+
+    .kv{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+
+    .kv .pill{
+      background:#0f141a;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:8px 10px;
+      font-size:12px;
+      color: var(--muted);
+      white-space:nowrap;
+    }
+    .kv .pill b{ color:var(--txt); }
+
+    .mono{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      font-size:11px;
+      color:#cbd5e1;
+      background:#0b0f14;
+      border:1px solid var(--line);
+      border-radius:12px;
+      padding:10px;
+      max-height:170px;
+      overflow:auto;
+      line-height:1.45;
+    }
+
+    .footer{
+      color: var(--muted);
+      font-size:12px;
+      padding:6px 2px;
+      text-align:right;
+      opacity:.8;
+    }
+  </style>
 </head>
 
 <body>
-<header>
-  <h1>Bikefit MVP (BOK + TYŁ) – DEMO v3.1</h1>
+  <div class="app">
+    <div class="topbar">
+      <div class="title">Bikefitting MVP (BOK + TYŁ) – DEMO v3.1</div>
 
-  <div class="row">
-    <label>Tryb:</label>
-    <select id="mode">
-      <option value="hub">HUB (Laptop)</option>
-      <option value="cam_side">CAM – BOK (Telefon)</option>
-      <option value="cam_rear">CAM – TYŁ (Telefon)</option>
-      <option value="demo">DEMO (bez kamer)</option>
-    </select>
-    <span id="status" class="pill">OFFLINE</span>
-    <span id="cams" class="pill">SIDE: - | REAR: -</span>
-    <button id="btnClient" class="btnGhost">Tryb klienta: OFF</button>
-  </div>
+      <div class="row">
+        <div class="field" style="min-width:200px">
+          <label>Tryb</label>
+          <select id="modeSel">
+            <option value="HUB">HUB (laptop)</option>
+            <option value="SIDE">SIDE only</option>
+            <option value="REAR">REAR only</option>
+          </select>
+        </div>
 
-  <div class="row" id="debugNote">
-    <label>Room:</label><input id="room" value="default"/>
-    <label>WS URL:</label><input id="wsUrl" placeholder="ws://IP:8181"/>
-    <button id="btnConnect">Połącz</button>
-    <button id="btnStart">Start</button>
-    <button id="btnStop">Stop</button>
-  </div>
+        <div class="field">
+          <label>WS URL</label>
+          <input id="wsUrl" value="ws://localhost:8787/ws" />
+        </div>
 
-  <div class="row">
-    <label>Styl:</label>
-    <select id="style">
-      <option value="road">Szosa</option>
-      <option value="mtb">MTB</option>
-    </select>
-    <label>Wzrost (cm):</label><input id="height" type="number" value="175"/>
-    <label>Przekrok (cm):</label><input id="inseam" type="number" value="82"/>
-    <small>Tip: przekrok = od kroku do ziemi (książka + ściana).</small>
-  </div>
+        <div class="field">
+          <label>Token (opcjonalnie)</label>
+          <input id="token" placeholder="..." />
+        </div>
 
-  <div class="kpi">
-    <span class="pill" id="kpiKnee">Kolano: -</span>
-    <span class="pill" id="kpiElbow">Łokieć: -</span>
-    <span class="pill" id="kpiRock">Rocking: -</span>
-  </div>
-</header>
+        <div class="row">
+          <button id="btnDemo1" class="btn">Demo 1</button>
+          <button id="btnDemo2" class="btn">Demo 2</button>
+          <button id="btnDemo3" class="btn">Demo 3</button>
+          <button id="btnStart" class="btn good">Start</button>
+          <button id="btnStop" class="btn">Stop</button>
+        </div>
 
-<main class="grid">
-  <section class="card" id="cardCam">
-    <h2 id="camTitle">Kamera</h2>
-    <div class="row">
-      <button id="btnSwitchCam">Przełącz kamerę</button>
-      <span class="pill" id="rolePill">ROLE: -</span>
-    </div>
-    <video id="v" playsinline autoplay muted></video>
-    <canvas id="c"></canvas>
-    <pre id="camOut"></pre>
-  </section>
-
-  <section class="card" id="cardSide">
-    <h2>BOK – punkty + metryki</h2>
-    <canvas id="sideCanvas"></canvas>
-    <pre id="sideOut"></pre>
-  </section>
-
-  <section class="card" id="cardRear">
-    <h2>TYŁ – punkty + metryki</h2>
-    <canvas id="rearCanvas"></canvas>
-    <pre id="rearOut"></pre>
-  </section>
-
-  <section class="card full">
-    <h2>Rekomendacje</h2>
-    <div id="reco"></div>
-    <small class="muted">
-      DEMO v3.1: PRZED → AUTO-PO → PO + timeline. Punkty wróciły na canvasy.
-    </small>
-  </section>
-
-  <section class="card full">
-    <h2>Sesja</h2>
-    <div class="sessionBar">
-      <button id="btnNewSession">Nowa sesja</button>
-      <button id="btnSnap">Zapisz pomiar (SNAP)</button>
-      <button id="btnExport">Eksport JSON</button>
-      <span class="pill" id="sessionInfo">SNAP: 0</span>
-      <span class="pill" id="sessionId">ID: -</span>
-    </div>
-    <div id="sessionList" class="sessionList"></div>
-    <small class="muted">Eksport zapisuje snapshoty metryk + rekomendacje.</small>
-  </section>
-
-  <!-- DEMO v3 -->
-  <section class="card full" id="cardDemo">
-    <h2>DEMO v3.1 – AUTO-PO + timeline</h2>
-
-    <div class="row">
-      <label>Scenariusz:</label>
-      <select id="demoScenario">
-        <option value="ok">OK (referencja)</option>
-        <option value="saddle_high">Siodło za wysoko</option>
-        <option value="saddle_low">Siodło za nisko</option>
-        <option value="reach_long">Za długi reach</option>
-        <option value="pelvis_asym">Asymetria miednicy</option>
-        <option value="shoulder_asym">Asymetria barków</option>
-        <option value="rocking_high">Mocny rocking</option>
-      </select>
-      <button id="btnDemoLoad">Wczytaj</button>
-
-      <span class="pill" id="demoStatePill">LIVE</span>
-      <button id="btnSetBefore" class="btnWarn">Ustaw jako PRZED</button>
-      <button id="btnAutoAfter" class="btnGood">AUTO-PO (z rekomendacji)</button>
-      <button id="btnSetAfter" class="btnWarn">Ustaw jako PO</button>
-      <button id="btnClearBeforeAfter" class="btnGhost">Wyczyść PRZED/PO</button>
-    </div>
-
-    <div class="row">
-      <label>Korekty DEMO (ręczne):</label>
-      <button id="btnAdjSaddleDown">Siodło -5mm</button>
-      <button id="btnAdjSaddleUp">Siodło +5mm</button>
-      <button id="btnAdjReachShorter">Reach -10mm</button>
-      <button id="btnAdjReachLonger">Reach +10mm</button>
-      <button id="btnAdjReduceRock">Zredukuj rocking</button>
-    </div>
-
-    <div class="row">
-      <label>Timeline:</label>
-      <button id="btnTLAdd" class="btnGhost">Dodaj krok</button>
-      <button id="btnTLAddBefore" class="btnWarn">Dodaj PRZED</button>
-      <button id="btnTLAddAfter" class="btnGood">Dodaj PO</button>
-      <button id="btnTLClear" class="btnBad">Wyczyść timeline</button>
-    </div>
-
-    <div class="demoGrid">
-      <div class="demoBox">
-        <h3>PRZED – metryki</h3>
-        <pre class="mono" id="demoBeforeOut">brak</pre>
+        <div class="chip" id="chipStatus"><b>OFFLINE</b></div>
       </div>
-      <div class="demoBox">
-        <h3>PO – metryki</h3>
-        <pre class="mono" id="demoAfterOut">brak</pre>
+
+      <div class="row">
+        <div class="field" style="min-width:120px">
+          <label>Wzrost (cm)</label>
+          <input id="heightCm" type="number" value="175" />
+        </div>
+        <div class="field" style="min-width:120px">
+          <label>Przekrok (cm)</label>
+          <input id="inseamCm" type="number" value="82" />
+        </div>
+
+        <div class="chip"><b>Side:</b> <span id="sideState">—</span></div>
+        <div class="chip"><b>Rear:</b> <span id="rearState">—</span></div>
+        <div class="chip"><b>Tryb kinect:</b> <span id="kinectState">OFF</span></div>
       </div>
-      <div class="demoBox">
-        <h3>Różnice (PO - PRZED)</h3>
-        <pre class="mono" id="demoDeltaOut">brak</pre>
-      </div>
-      <div class="demoBox">
-        <h3>LIVE – punkty</h3>
-        <pre class="mono" id="demoJson">-</pre>
+
+      <div class="kv">
+        <div class="pill"><b>Kolano:</b> <span id="kneeAngle">—</span>°</div>
+        <div class="pill"><b>Łokieć:</b> <span id="elbowAngle">—</span>°</div>
+        <div class="pill"><b>Rodziing:</b> <span id="rocking">—</span></div>
       </div>
     </div>
 
-    <div class="timeline" id="timeline"></div>
-  </section>
-</main>
+    <div class="grid">
+      <div class="card">
+        <h2>Kamera</h2>
+        <div class="card-body">
+          <div class="tabs">
+            <div class="tab active" data-tab="cam">Podgląd kamery</div>
+            <div class="tab" data-tab="rule">RULER</div>
+          </div>
 
-<script>
-/** =========================
- *  Utils
- *  ========================= */
-function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
-function angle3(a,b,c){
-  if(!a||!b||!c) return NaN;
-  const ba={x:a.x-b.x, y:a.y-b.y};
-  const bc={x:c.x-b.x, y:c.y-b.y};
-  const dot=ba.x*bc.x+ba.y*bc.y;
-  const nba=Math.hypot(ba.x,ba.y);
-  const nbc=Math.hypot(bc.x,bc.y);
-  const cos=dot/(nba*nbc+1e-9);
-  const v=Math.max(-1,Math.min(1,cos));
-  return Math.acos(v)*180/Math.PI;
-}
+          <div class="preview" id="camPreview">
+            <div class="hint">Tu będzie podgląd (HUB/WS) albo statyczny placeholder w DEMO.</div>
+          </div>
 
-/** =========================
- *  Rysowanie punktów (WRACA!)
- *  ========================= */
-function drawPointsTo(canvas, points, title){
-  const ctx = canvas.getContext("2d");
-  canvas.width = 640; canvas.height = 360;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+          <div class="preview" id="camPreview2" style="min-height:240px;">
+            <div class="hint">Drugi podgląd / TYŁ (w DEMO puste).</div>
+          </div>
 
-  ctx.lineWidth = 2;
-  ctx.font = "14px system-ui";
-  ctx.strokeStyle = "#fff";
-  ctx.fillStyle = "#fff";
+          <div class="mono" id="logBox"></div>
+        </div>
+      </div>
 
-  ctx.fillText(title, 10, 20);
+      <div class="card">
+        <h2>BOK – punkty + metryki</h2>
+        <div class="card-body">
+          <canvas id="sideCanvas" class="pointsCanvas"></canvas>
+          <div class="mono" id="sideJson"></div>
+        </div>
+      </div>
 
-  if(!points){
-    ctx.fillText("brak punktów", 10, 45);
-    return;
-  }
+      <div class="card">
+        <h2>TYŁ – punkty + metryki</h2>
+        <div class="card-body">
+          <canvas id="rearCanvas" class="pointsCanvas"></canvas>
+          <div class="mono" id="rearJson"></div>
+        </div>
+      </div>
 
-  // zakładamy 1280x720 -> 640x360 (x0.5)
-  for(const [k,p] of Object.entries(points)){
-    if(!p) continue;
-    const x = p.x * 0.5;
-    const y = p.y * 0.5;
-    ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.stroke();
-    ctx.fillText(k, x+8, y);
-  }
-}
+      <div class="card">
+        <h2>Notatki / status</h2>
+        <div class="card-body">
+          <div class="hint">
+            DEMO: punkty są rysowane na canvasie. W trybie HUB będą pochodzić z serwera/WS.
+          </div>
+          <div class="mono" id="noteBox">
+            • Kliknij DEMO 1/2/3 aby wczytać przykładowe punkty.<br>
+            • Jeśli coś się rozjedzie – teraz naprawione: canvas ma stały rozmiar i przerysowuje się na resize.<br>
+          </div>
+        </div>
+      </div>
+    </div>
 
-/** =========================
- *  Reco
- *  ========================= */
-function makeTargets(style){
-  return style==="road"
-    ? { kneeBDP: [145, 160], elbow: [150, 175], rockingMax: 0.035 }
-    : { kneeBDP: [140, 158], elbow: [155, 178], rockingMax: 0.045 };
-}
-function stepMmFromDelta(deltaDeg){
-  const ad = Math.abs(deltaDeg);
-  if(ad < 2) return 0;
-  if(ad < 4) return 3;
-  if(ad < 7) return 5;
-  if(ad < 10) return 10;
-  return 15;
-}
-function saddleStarterFromInseam(inseam_cm){
-  if(!inseam_cm || inseam_cm<=0) return null;
-  return 0.883 * inseam_cm;
-}
-function recommendations(profile, sideMetrics, rearMetrics){
-  const t = makeTargets(profile.style);
-  const out = [];
+    <div class="footer">v3.1 (canvas scaling fix)</div>
+  </div>
 
-  const starter = saddleStarterFromInseam(profile.inseam_cm||0);
-  out.push({
-    lvl:"ok",
-    title:"Profil",
-    why:`Styl: ${profile.style.toUpperCase()}, wzrost: ${profile.height_cm||"-"} cm, przekrok: ${profile.inseam_cm||"-"} cm.`,
-    do: starter ? `Punkt startowy (orientacyjnie): wysokość siodła ~ ${starter.toFixed(1)} cm (0.883).` : `Dodaj przekrok, a policzę punkt startowy siodła.`
-  });
-
-  if(Number.isFinite(sideMetrics.knee)){
-    const knee = sideMetrics.knee;
-    const deltaHigh = knee - t.kneeBDP[1];
-    const deltaLow  = t.kneeBDP[0] - knee;
-    const mmHigh = stepMmFromDelta(deltaHigh) || 5;
-    const mmLow  = stepMmFromDelta(deltaLow)  || 5;
-
-    if(knee > t.kneeBDP[1] && Number.isFinite(rearMetrics.rocking) && rearMetrics.rocking > t.rockingMax){
-      out.push({lvl:"bad", title:"Siodło prawdopodobnie za wysoko",
-        why:`Kolano ~ ${knee.toFixed(1)}° + rocking ${rearMetrics.rocking.toFixed(3)} (wysoki).`,
-        do:`Obniż siodło o ${mmHigh} mm i re-test.`});
-    } else if(knee > t.kneeBDP[1]){
-      out.push({lvl:"warn", title:"Możliwe: siodło za wysoko",
-        why:`Kolano ~ ${knee.toFixed(1)}° (powyżej ${t.kneeBDP[1]}°).`,
-        do:`Test: obniż o ${mmHigh} mm i re-test.`});
-    } else if(knee < t.kneeBDP[0]){
-      out.push({lvl:"warn", title:"Możliwe: siodło za nisko",
-        why:`Kolano ~ ${knee.toFixed(1)}° (poniżej ${t.kneeBDP[0]}°).`,
-        do:`Test: podnieś o ${mmLow} mm i re-test.`});
-    } else {
-      out.push({lvl:"ok", title:"Wysokość siodła wygląda OK (wg kolana)",
-        why:`Kolano ~ ${knee.toFixed(1)}° w zakresie.`,
-        do:`OK. Dalej przód + stabilność.`});
-    }
-  } else {
-    out.push({lvl:"warn", title:"Brak metryki kolana (BOK)",
-      why:"Nie wykryto hip/knee/ankle.", do:"Sprawdź markery/światło."});
-  }
-
-  if(Number.isFinite(sideMetrics.elbow)){
-    const e = sideMetrics.elbow;
-    if(e > t.elbow[1]){
-      out.push({lvl:"warn", title:"Możliwie za duży reach",
-        why:`Łokieć ~ ${e.toFixed(1)}° (powyżej ${t.elbow[1]}°).`,
-        do:`Test: krótszy mostek 10 mm lub +5–10 mm podkładek. Re-test.`});
-    } else if(e < t.elbow[0]){
-      out.push({lvl:"warn", title:"Pozycja mocno zebrana",
-        why:`Łokieć ~ ${e.toFixed(1)}° (poniżej ${t.elbow[0]}°).`,
-        do:`Jeśli nie aero: dłuższy mostek +10 mm. Re-test.`});
-    } else {
-      out.push({lvl:"ok", title:"Łokieć wygląda OK", why:`Łokieć ~ ${e.toFixed(1)}° w zakresie.`, do:"OK."});
-    }
-  }
-
-  if(Number.isFinite(rearMetrics.rocking)){
-    if(rearMetrics.rocking > t.rockingMax){
-      out.push({lvl:"warn", title:"Rocking miednicy podwyższony",
-        why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)} (powyżej ${t.rockingMax}).`,
-        do:`Najczęściej: minimalnie za wysoko siodło lub zbyt agresywny przód.`});
-    } else {
-      out.push({lvl:"ok", title:"Stabilność miednicy OK",
-        why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)}.`,
-        do:"OK."});
-    }
-  }
-
-  out.push({lvl:"ok", title:"Setback / sztyca (kolejna wersja)",
-    why:"W v4 dołożymy KOPS i wtedy setback/offset będą precyzyjne.",
-    do:"Na teraz: wysokość siodła + reach + stabilność."});
-
-  return out;
-}
-
-/** =========================
- *  Metryki
- *  ========================= */
-function computeSideMetrics(points){
-  const m = { knee: NaN, hip: NaN, elbow: NaN };
-  if(points?.hip && points?.knee && points?.ankle) m.knee = angle3(points.hip, points.knee, points.ankle);
-  if(points?.shoulder && points?.hip && points?.knee) m.hip = angle3(points.shoulder, points.hip, points.knee);
-  if(points?.shoulder && points?.elbow && points?.wrist) m.elbow = angle3(points.shoulder, points.elbow, points.wrist);
-  return m;
-}
-
-let rearHistory = [];
-function computeRearMetrics(points){
-  const m = { rocking: NaN, pelvisTilt: NaN, shoulderTilt: NaN };
-
-  if(points?.l_pelvis && points?.r_pelvis) m.pelvisTilt = points.l_pelvis.y - points.r_pelvis.y;
-  if(points?.l_shoulder && points?.r_shoulder) m.shoulderTilt = points.l_shoulder.y - points.r_shoulder.y;
-
-  if(points?.l_pelvis && points?.r_pelvis && points?.l_shoulder && points?.r_shoulder){
-    const pelvisMid = { x:(points.l_pelvis.x+points.r_pelvis.x)/2, y:(points.l_pelvis.y+points.r_pelvis.y)/2 };
-    const shoulderMid= { x:(points.l_shoulder.x+points.r_shoulder.x)/2, y:(points.l_shoulder.y+points.r_shoulder.y)/2 };
-    const torsoH = Math.max(50, Math.abs(pelvisMid.y - shoulderMid.y));
-    const tiltNorm = Math.abs(m.pelvisTilt) / torsoH;
-
-    rearHistory.push(tiltNorm);
-    if(rearHistory.length>120) rearHistory.shift();
-
-    const max = Math.max(...rearHistory);
-    const min = Math.min(...rearHistory);
-    m.rocking = (max - min);
-  }
-  return m;
-}
-
-function fmtM(m){
-  return {
-    knee: Number.isFinite(m.knee) ? Number(m.knee.toFixed(2)) : null,
-    elbow: Number.isFinite(m.elbow) ? Number(m.elbow.toFixed(2)) : null,
-    rocking: Number.isFinite(m.rocking) ? Number(m.rocking.toFixed(4)) : null,
+  <script>
+(() => {
+  const els = {
+    modeSel: document.getElementById("modeSel"),
+    wsUrl: document.getElementById("wsUrl"),
+    token: document.getElementById("token"),
+    btnDemo1: document.getElementById("btnDemo1"),
+    btnDemo2: document.getElementById("btnDemo2"),
+    btnDemo3: document.getElementById("btnDemo3"),
+    btnStart: document.getElementById("btnStart"),
+    btnStop: document.getElementById("btnStop"),
+    chipStatus: document.getElementById("chipStatus"),
+    sideState: document.getElementById("sideState"),
+    rearState: document.getElementById("rearState"),
+    kinectState: document.getElementById("kinectState"),
+    kneeAngle: document.getElementById("kneeAngle"),
+    elbowAngle: document.getElementById("elbowAngle"),
+    rocking: document.getElementById("rocking"),
+    logBox: document.getElementById("logBox"),
+    sideJson: document.getElementById("sideJson"),
+    rearJson: document.getElementById("rearJson"),
+    noteBox: document.getElementById("noteBox"),
+    sideCanvas: document.getElementById("sideCanvas"),
+    rearCanvas: document.getElementById("rearCanvas"),
   };
-}
 
-/** =========================
- *  DOM
- *  ========================= */
-const els = {
-  mode: document.getElementById("mode"),
-  status: document.getElementById("status"),
-  cams: document.getElementById("cams"),
-  room: document.getElementById("room"),
-  wsUrl: document.getElementById("wsUrl"),
-  btnConnect: document.getElementById("btnConnect"),
-  btnStart: document.getElementById("btnStart"),
-  btnStop: document.getElementById("btnStop"),
-  btnClient: document.getElementById("btnClient"),
+  // --- stan ---
+  let ws = null;
+  let wsState = "OFFLINE";
+  let sidePoints = null;  // obiekt: {name:{x,y}, ...}
+  let rearPoints = null;
 
-  style: document.getElementById("style"),
-  height: document.getElementById("height"),
-  inseam: document.getElementById("inseam"),
-
-  kpiKnee: document.getElementById("kpiKnee"),
-  kpiElbow: document.getElementById("kpiElbow"),
-  kpiRock: document.getElementById("kpiRock"),
-
-  sideCanvas: document.getElementById("sideCanvas"),
-  rearCanvas: document.getElementById("rearCanvas"),
-  sideOut: document.getElementById("sideOut"),
-  rearOut: document.getElementById("rearOut"),
-
-  reco: document.getElementById("reco"),
-
-  btnNewSession: document.getElementById("btnNewSession"),
-  btnSnap: document.getElementById("btnSnap"),
-  btnExport: document.getElementById("btnExport"),
-  sessionInfo: document.getElementById("sessionInfo"),
-  sessionId: document.getElementById("sessionId"),
-  sessionList: document.getElementById("sessionList"),
-
-  demoScenario: document.getElementById("demoScenario"),
-  btnDemoLoad: document.getElementById("btnDemoLoad"),
-  demoStatePill: document.getElementById("demoStatePill"),
-  btnSetBefore: document.getElementById("btnSetBefore"),
-  btnAutoAfter: document.getElementById("btnAutoAfter"),
-  btnSetAfter: document.getElementById("btnSetAfter"),
-  btnClearBeforeAfter: document.getElementById("btnClearBeforeAfter"),
-
-  btnAdjSaddleDown: document.getElementById("btnAdjSaddleDown"),
-  btnAdjSaddleUp: document.getElementById("btnAdjSaddleUp"),
-  btnAdjReachShorter: document.getElementById("btnAdjReachShorter"),
-  btnAdjReachLonger: document.getElementById("btnAdjReachLonger"),
-  btnAdjReduceRock: document.getElementById("btnAdjReduceRock"),
-
-  btnTLAdd: document.getElementById("btnTLAdd"),
-  btnTLAddBefore: document.getElementById("btnTLAddBefore"),
-  btnTLAddAfter: document.getElementById("btnTLAddAfter"),
-  btnTLClear: document.getElementById("btnTLClear"),
-  timeline: document.getElementById("timeline"),
-
-  demoBeforeOut: document.getElementById("demoBeforeOut"),
-  demoAfterOut: document.getElementById("demoAfterOut"),
-  demoDeltaOut: document.getElementById("demoDeltaOut"),
-  demoJson: document.getElementById("demoJson"),
-};
-
-els.wsUrl.value = `ws://${location.hostname || "127.0.0.1"}:8181`;
-
-/** =========================
- *  State
- *  ========================= */
-let clientMode = false;
-let sidePoints = null;
-let rearPoints = null;
-let demoBefore = null;
-let demoAfter  = null;
-let timeline = [];
-
-/** =========================
- *  Helpers UI
- *  ========================= */
-function profile(){
-  return {
-    style: els.style.value,
-    height_cm: Number(els.height.value||0),
-    inseam_cm: Number(els.inseam.value||0)
-  };
-}
-function setKpi(sideM, rearM){
-  els.kpiKnee.textContent = `Kolano: ${Number.isFinite(sideM.knee) ? sideM.knee.toFixed(1)+"°" : "-"}`;
-  els.kpiElbow.textContent = `Łokieć: ${Number.isFinite(sideM.elbow) ? sideM.elbow.toFixed(1)+"°" : "-"}`;
-  els.kpiRock.textContent = `Rocking: ${Number.isFinite(rearM.rocking) ? rearM.rocking.toFixed(3) : "-"}`;
-}
-function renderReco(sideM, rearM){
-  const items = recommendations(profile(), sideM, rearM);
-  const top = clientMode ? items.slice(0,3) : items;
-  els.reco.innerHTML = top.map(it => `
-    <div class="item ${it.lvl}">
-      <div><b>${it.title}</b></div>
-      <div><small>${it.why}</small></div>
-      <div>${it.do}</div>
-    </div>
-  `).join("");
-  return items;
-}
-
-/** =========================
- *  DEMO presets
- *  ========================= */
-const DEMO_PRESETS = {
-  ok: {
-    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
-  },
-  saddle_high: {
-    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:610,y:520}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:345}, r_pelvis:{x:500,y:390} }
-  },
-  saddle_low: {
-    side: { hip:{x:400,y:300}, knee:{x:520,y:430}, ankle:{x:550,y:590}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:450,y:370}, r_pelvis:{x:490,y:372} }
-  },
-  reach_long: {
-    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:235,y:215}, wrist:{x:145,y:215} },
-    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
-  },
-  pelvis_asym: {
-    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:340}, r_pelvis:{x:500,y:395} }
-  },
-  shoulder_asym: {
-    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-    rear: { l_shoulder:{x:420,y:185}, r_shoulder:{x:520,y:220}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
-  },
-  rocking_high: {
-    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:600,y:520}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:330}, r_pelvis:{x:500,y:410} }
+  function log(msg){
+    const t = new Date().toLocaleTimeString();
+    els.logBox.innerHTML += `[${t}] ${msg}<br>`;
+    els.logBox.scrollTop = els.logBox.scrollHeight;
   }
-};
 
-function demoLoadScenario(key){
-  const preset = DEMO_PRESETS[key] || DEMO_PRESETS.ok;
-  sidePoints = deepClone(preset.side);
-  rearPoints = deepClone(preset.rear);
-  rearHistory = [];
-  els.demoStatePill.textContent = `LIVE (${key})`;
-  updateAll();
-}
-
-/** =========================
- *  DEMO korekty
- *  ========================= */
-function adjSaddle(mm){
-  const px = mm * 1.2;
-  if(sidePoints?.ankle) sidePoints.ankle.y += px;
-  if(sidePoints?.knee)  sidePoints.knee.y  += px*0.4;
-  if(rearPoints?.l_pelvis && rearPoints?.r_pelvis){
-    rearPoints.l_pelvis.y += px*0.2;
-    rearPoints.r_pelvis.y += px*0.2;
+  function setStatus(text){
+    wsState = text;
+    els.chipStatus.innerHTML = `<b>${text}</b>`;
   }
-}
-function adjReach(mm){
-  const px = mm * 1.0;
-  if(sidePoints?.wrist) sidePoints.wrist.x += px;
-  if(sidePoints?.elbow) sidePoints.elbow.x += px*0.6;
-}
-function reduceRocking(){
-  if(rearPoints?.l_pelvis && rearPoints?.r_pelvis){
-    const mid = (rearPoints.l_pelvis.y + rearPoints.r_pelvis.y) / 2;
-    rearPoints.l_pelvis.y = mid - 2;
-    rearPoints.r_pelvis.y = mid + 2;
+
+  function normalizePointMap(obj){
+    // zabezpieczenie
+    if(!obj) return {};
+    return obj;
   }
-}
 
-/** =========================
- *  AUTO-PO
- *  ========================= */
-function autoActionsFromMetrics(p, sideM, rearM){
-  const t = makeTargets(p.style);
-  const actions = [];
+  function computeAngle(a, b, c){
+    // kąt ABC w stopniach
+    if(!a || !b || !c) return null;
+    const abx = a.x - b.x, aby = a.y - b.y;
+    const cbx = c.x - b.x, cby = c.y - b.y;
+    const dot = abx*cbx + aby*cby;
+    const mag1 = Math.hypot(abx, aby);
+    const mag2 = Math.hypot(cbx, cby);
+    if(mag1 === 0 || mag2 === 0) return null;
+    const cos = Math.max(-1, Math.min(1, dot/(mag1*mag2)));
+    return Math.round((Math.acos(cos) * 180/Math.PI) * 10) / 10;
+  }
 
-  if(Number.isFinite(sideM.knee)){
-    if(sideM.knee > t.kneeBDP[1]){
-      const mm = stepMmFromDelta(sideM.knee - t.kneeBDP[1]) || 5;
-      actions.push({type:"saddle", mm:+mm});
-    } else if(sideM.knee < t.kneeBDP[0]){
-      const mm = stepMmFromDelta(t.kneeBDP[0] - sideM.knee) || 5;
-      actions.push({type:"saddle", mm:-mm});
+  function computeSideMetrics(p){
+    // p: {shoulder, elbow, wrist, hip, knee, ankle}
+    const elbow = computeAngle(p.shoulder, p.elbow, p.wrist);
+    const knee  = computeAngle(p.hip, p.knee, p.ankle);
+    return { elbow, knee };
+  }
+
+  function computeRearMetrics(p){
+    // placeholder – w przyszłości: rocking, kolano L/R itd.
+    return { rocking: null };
+  }
+
+  function drawPointsTo(canvas, points, title){
+    // --- FIX: dopasuj rozmiar canvas do tego co widać na ekranie (CSS) ---
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const cssW = Math.max(1, rect.width);
+    const cssH = Math.max(1, rect.height);
+
+    const pxW = Math.max(1, Math.round(cssW * dpr));
+    const pxH = Math.max(1, Math.round(cssH * dpr));
+
+    if (canvas.width !== pxW || canvas.height !== pxH){
+      canvas.width = pxW;
+      canvas.height = pxH;
+    }
+
+    const ctx = canvas.getContext("2d");
+    // rysujemy w jednostkach CSS (nie w pikselach urządzenia)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+
+    // tło (czarne jak w podglądach)
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, cssW, cssH);
+
+    // bazowe wymiary dla "demo" (stare współrzędne są w okolicach 800x600)
+    const BASE_W = 800;
+    const BASE_H = 600;
+    const sx = cssW / BASE_W;
+    const sy = cssH / BASE_H;
+
+    // tytuł
+    if(title){
+      ctx.fillStyle = "#fff";
+      ctx.font = "16px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial";
+      ctx.fillText(title, 12, 26);
+    }
+
+    // Ujednolicenie formatu punktów:
+    // - czasem jest Array: [{name,x,y}, ...]
+    // - a czasem jest Object: { shoulder:{x,y}, elbow:{x,y}, ... }
+    const list = Array.isArray(points)
+      ? points.map(p => ({ name: p.name, x: p.x, y: p.y }))
+      : Object.entries(points || {}).map(([name, p]) => ({ name, x: p.x, y: p.y }));
+
+    // punkty
+    for (const p of list){
+      if (p.x == null || p.y == null) continue;
+
+      // Jeśli punkty są znormalizowane (0..1) – rysuj proporcjonalnie.
+      // Jeśli są w "starych pikselach" (np. 400, 300) – przeskaluj z BASE_W/BASE_H.
+      const isNormalized = (p.x <= 1.5 && p.y <= 1.5);
+      const x = isNormalized ? (p.x * cssW) : (p.x * sx);
+      const y = isNormalized ? (p.y * cssH) : (p.y * sy);
+
+      // kółko
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // opis
+      ctx.fillStyle = "#fff";
+      ctx.font = "14px system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial";
+      ctx.fillText(p.name, x + 12, y + 5);
     }
   }
 
-  if(Number.isFinite(sideM.elbow)){
-    if(sideM.elbow > t.elbow[1]) actions.push({type:"reach", mm:+10});
-    else if(sideM.elbow < t.elbow[0]) actions.push({type:"reach", mm:-10});
+  function updateHubUI(){
+    const sp = normalizePointMap(sidePoints);
+    const rp = normalizePointMap(rearPoints);
+
+    // punkty
+    drawPointsTo(els.sideCanvas, sp, "BOK (punkty)");
+    drawPointsTo(els.rearCanvas, rp, "TYŁ (punkty)");
+
+    // json
+    els.sideJson.textContent = JSON.stringify(sp, null, 2);
+    els.rearJson.textContent = JSON.stringify(rp, null, 2);
+
+    // metryki
+    const m1 = computeSideMetrics(sp);
+    const m2 = computeRearMetrics(rp);
+
+    els.elbowAngle.textContent = (m1.elbow ?? "—");
+    els.kneeAngle.textContent  = (m1.knee ?? "—");
+    els.rocking.textContent    = (m2.rocking ?? "—");
+
+    els.sideState.textContent = Object.keys(sp).length ? "OK" : "—";
+    els.rearState.textContent = Object.keys(rp).length ? "OK" : "—";
   }
 
-  if(Number.isFinite(rearM.rocking) && rearM.rocking > t.rockingMax){
-    actions.push({type:"rocking", on:true});
-  }
-
-  const out = [];
-  for(const a of actions){
-    if(a.type==="rocking"){ out.push(a); continue; }
-    if(out.filter(x=>x.type!=="rocking").length < 2) out.push(a);
-  }
-  return out;
-}
-function applyActions(actions){
-  for(const a of actions){
-    if(a.type==="saddle") adjSaddle(a.mm);
-    if(a.type==="reach")  adjReach(a.mm);
-    if(a.type==="rocking") reduceRocking();
-  }
-}
-
-/** =========================
- *  PRZED/PO porównanie
- *  ========================= */
-function metricsForState(state){
-  const sideM = computeSideMetrics(state?.side);
-  const rearM = computeRearMetrics(state?.rear);
-  return { side: sideM, rear: rearM };
-}
-function renderBeforeAfter(){
-  if(demoBefore){
-    const mb = metricsForState(demoBefore);
-    els.demoBeforeOut.textContent = JSON.stringify({ side: fmtM(mb.side), rear: fmtM(mb.rear) }, null, 2);
-  } else els.demoBeforeOut.textContent = "brak";
-
-  if(demoAfter){
-    const ma = metricsForState(demoAfter);
-    els.demoAfterOut.textContent = JSON.stringify({ side: fmtM(ma.side), rear: fmtM(ma.rear) }, null, 2);
-  } else els.demoAfterOut.textContent = "brak";
-
-  if(demoBefore && demoAfter){
-    const mb = metricsForState(demoBefore);
-    const ma = metricsForState(demoAfter);
-    const d = {
-      knee: (Number.isFinite(ma.side.knee) && Number.isFinite(mb.side.knee)) ? Number((ma.side.knee - mb.side.knee).toFixed(2)) : null,
-      elbow:(Number.isFinite(ma.side.elbow) && Number.isFinite(mb.side.elbow)) ? Number((ma.side.elbow - mb.side.elbow).toFixed(2)) : null,
-      rocking:(Number.isFinite(ma.rear.rocking) && Number.isFinite(mb.rear.rocking)) ? Number((ma.rear.rocking - mb.rear.rocking).toFixed(4)) : null
-    };
-    els.demoDeltaOut.textContent = JSON.stringify(d, null, 2);
-  } else els.demoDeltaOut.textContent = "brak";
-}
-function setBefore(){
-  demoBefore = { side: deepClone(sidePoints), rear: deepClone(rearPoints) };
-  els.demoStatePill.textContent = `LIVE (PRZED ustawione)`;
-  renderBeforeAfter();
-}
-function setAfter(){
-  demoAfter = { side: deepClone(sidePoints), rear: deepClone(rearPoints) };
-  els.demoStatePill.textContent = `LIVE (PO ustawione)`;
-  renderBeforeAfter();
-}
-function clearBeforeAfter(){
-  demoBefore = null; demoAfter = null;
-  els.demoStatePill.textContent = `LIVE`;
-  els.demoBeforeOut.textContent = "brak";
-  els.demoAfterOut.textContent = "brak";
-  els.demoDeltaOut.textContent = "brak";
-}
-
-/** =========================
- *  Timeline
- *  ========================= */
-function downloadJson(filename, obj){
-  const blob = new Blob([JSON.stringify(obj,null,2)], {type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
-}
-function addTimelineStep(label){
-  const p = profile();
-  const sideM = computeSideMetrics(sidePoints);
-  const rearM = computeRearMetrics(rearPoints);
-  const reco = recommendations(p, sideM, rearM);
-
-  timeline.push({
-    t: new Date().toISOString(),
-    label,
-    profile: p,
-    metrics: { side: fmtM(sideM), rear: fmtM(rearM) },
-    reco,
-    points: { side: deepClone(sidePoints), rear: deepClone(rearPoints) }
-  });
-  renderTimeline();
-}
-function renderTimeline(){
-  els.timeline.innerHTML = timeline.map((s, idx) => `
-    <div class="step">
-      <div class="stepTop">
-        <div><b>Krok #${idx+1}: ${s.label}</b> <span class="tag">${new Date(s.t).toLocaleString()}</span></div>
-        <div class="tag">${s.profile.style.toUpperCase()}</div>
-      </div>
-      <div class="muted">Kolano: ${s.metrics.side.knee ?? "-"} | Łokieć: ${s.metrics.side.elbow ?? "-"} | Rocking: ${s.metrics.rear.rocking ?? "-"}</div>
-      <div class="stepBtns">
-        <button class="btnGhost" data-act="load" data-i="${idx}">Wczytaj ten krok</button>
-        <button class="btnGhost" data-act="export" data-i="${idx}">Eksport kroku JSON</button>
-      </div>
-    </div>
-  `).join("");
-
-  els.timeline.querySelectorAll("button[data-act]").forEach(btn=>{
-    btn.onclick = () => {
-      const i = Number(btn.dataset.i);
-      const act = btn.dataset.act;
-      const step = timeline[i];
-      if(!step) return;
-
-      if(act==="load"){
-        sidePoints = deepClone(step.points.side);
-        rearPoints = deepClone(step.points.rear);
-        rearHistory = [];
-        els.demoStatePill.textContent = `LIVE (wczytano: ${step.label})`;
-        updateAll();
+  // --- DEMO dane ---
+  const DEMOS = {
+    1: {
+      side: {
+        shoulder:{x:520,y:180},
+        elbow:{x:470,y:240},
+        wrist:{x:420,y:270},
+        hip:{x:540,y:280},
+        knee:{x:620,y:390},
+        ankle:{x:640,y:510},
+      },
+      rear: {
+        l_shoulder:{x:360,y:260},
+        r_shoulder:{x:420,y:260},
+        l_hip:{x:360,y:360},
+        r_hip:{x:420,y:360},
       }
-      if(act==="export"){
-        downloadJson(`TL_STEP_${i+1}_${step.label.replace(/\s+/g,"_")}.json`, step);
+    },
+    2: {
+      side: {
+        shoulder:{x:540,y:170},
+        elbow:{x:500,y:235},
+        wrist:{x:450,y:275},
+        hip:{x:560,y:300},
+        knee:{x:640,y:420},
+        ankle:{x:660,y:520},
+      },
+      rear: {
+        l_shoulder:{x:350,y:250},
+        r_shoulder:{x:430,y:250},
+        l_hip:{x:350,y:370},
+        r_hip:{x:430,y:370},
+      }
+    },
+    3: {
+      side: {
+        shoulder:{x:500,y:170},
+        elbow:{x:455,y:235},
+        wrist:{x:410,y:270},
+        hip:{x:520,y:305},
+        knee:{x:585,y:430},
+        ankle:{x:610,y:540},
+      },
+      rear: {
+        l_shoulder:{x:340,y:250},
+        r_shoulder:{x:440,y:250},
+        l_hip:{x:340,y:380},
+        r_hip:{x:440,y:380},
+      }
+    }
+  };
+
+  function loadDemo(n){
+    const d = DEMOS[n];
+    sidePoints = structuredClone(d.side);
+    rearPoints = structuredClone(d.rear);
+    log(`Wczytano DEMO ${n}`);
+    updateHubUI();
+  }
+
+  function wsConnect(){
+    const url = els.wsUrl.value.trim();
+    if(!url){
+      log("Brak WS URL");
+      return;
+    }
+    setStatus("CONNECTING");
+    log("Łączę WS: " + url);
+
+    try{
+      ws = new WebSocket(url);
+    }catch(e){
+      setStatus("OFFLINE");
+      log("Błąd WebSocket: " + e.message);
+      return;
+    }
+
+    ws.onopen = () => {
+      setStatus("ONLINE");
+      log("WS: połączono");
+      const tk = els.token.value.trim();
+      if(tk){
+        ws.send(JSON.stringify({type:"auth", token: tk}));
+        log("WS: wysłano auth token");
       }
     };
+
+    ws.onclose = () => {
+      setStatus("OFFLINE");
+      log("WS: rozłączono");
+      ws = null;
+    };
+
+    ws.onerror = () => {
+      log("WS: błąd");
+    };
+
+    ws.onmessage = (ev) => {
+      try{
+        const msg = JSON.parse(ev.data);
+        if(msg.type === "sidePoints"){
+          sidePoints = msg.points || msg;
+          updateHubUI();
+        } else if(msg.type === "rearPoints"){
+          rearPoints = msg.points || msg;
+          updateHubUI();
+        } else if(msg.type === "kinect"){
+          els.kinectState.textContent = msg.state ? "ON" : "OFF";
+        } else {
+          // dowolne
+        }
+      }catch(e){
+        // ignoruj
+      }
+    };
+  }
+
+  function wsDisconnect(){
+    if(ws){
+      ws.close();
+      ws = null;
+    }
+    setStatus("OFFLINE");
+  }
+
+  // --- eventy ---
+  els.btnDemo1.addEventListener("click", () => loadDemo(1));
+  els.btnDemo2.addEventListener("click", () => loadDemo(2));
+  els.btnDemo3.addEventListener("click", () => loadDemo(3));
+
+  els.btnStart.addEventListener("click", () => {
+    if(els.modeSel.value === "HUB"){
+      wsConnect();
+    }else{
+      log("Tryb nie-HUB: Start pominięty (DEMO lokalne).");
+    }
   });
-}
-function clearTimeline(){
-  timeline = [];
-  renderTimeline();
-}
 
-/** =========================
- *  Sesja (SNAP)
- *  ========================= */
-let session = { id:null, createdAt:null, snaps:[] };
-function newSession(){
-  session = {
-    id: `S-${Math.random().toString(16).slice(2,8)}-${Date.now().toString(16).slice(-6)}`.toUpperCase(),
-    createdAt: new Date().toISOString(),
-    snaps: []
-  };
-  renderSession();
-}
-function renderSession(){
-  els.sessionInfo.textContent = `SNAP: ${session.snaps.length}`;
-  els.sessionId.textContent = `ID: ${session.id || "-"}`;
-  els.sessionList.innerHTML = session.snaps.map((s,idx)=>`
-    <div class="snap">
-      <div class="snapHeader">
-        <div><b>SNAP #${idx+1}</b> <span class="tag">${new Date(s.t).toLocaleString()}</span></div>
-        <div class="tag">${s.profile.style.toUpperCase()}</div>
-      </div>
-      <div class="muted">Kolano: ${s.side.knee ?? "-"} | Łokieć: ${s.side.elbow ?? "-"} | Rocking: ${s.rear.rocking ?? "-"}</div>
-      <details>
-        <summary>Rekomendacje (${s.reco.length})</summary>
-        <div style="margin-top:8px">${s.reco.map(r=>`<div class="item ${r.lvl}"><b>${r.title}</b><div class="muted">${r.why}</div><div>${r.do}</div></div>`).join("")}</div>
-      </details>
-    </div>
-  `).join("");
-}
-
-/** =========================
- *  Update UI (NAJWAŻNIEJSZE)
- *  ========================= */
-function updateAll(){
-  const sideM = computeSideMetrics(sidePoints);
-  const rearM = computeRearMetrics(rearPoints);
-
-  // rysowanie punktów na ekranach
-  drawPointsTo(els.sideCanvas, sidePoints, "BOK (punkty)");
-  drawPointsTo(els.rearCanvas, rearPoints, "TYŁ (punkty)");
-
-  // debug metryk
-  els.sideOut.textContent = JSON.stringify({ points: sidePoints, metrics: sideM }, null, 2);
-  els.rearOut.textContent = JSON.stringify({ points: rearPoints, metrics: rearM }, null, 2);
-
-  setKpi(sideM, rearM);
-  renderReco(sideM, rearM);
-
-  els.demoJson.textContent = JSON.stringify({ side: sidePoints, rear: rearPoints }, null, 2);
-  renderBeforeAfter();
-}
-
-/** =========================
- *  Tryb klienta
- *  ========================= */
-function toggleClient(){
-  clientMode = !clientMode;
-  document.body.classList.toggle("client", clientMode);
-  els.btnClient.textContent = `Tryb klienta: ${clientMode ? "ON" : "OFF"}`;
-  updateAll();
-}
-
-/** =========================
- *  Events
- *  ========================= */
-els.btnClient.onclick = () => toggleClient();
-
-els.btnNewSession.onclick = () => newSession();
-els.btnSnap.onclick = () => {
-  const p = profile();
-  const sideM = computeSideMetrics(sidePoints);
-  const rearM = computeRearMetrics(rearPoints);
-  const reco = recommendations(p, sideM, rearM);
-
-  session.snaps.push({
-    t: new Date().toISOString(),
-    profile: p,
-    side: fmtM(sideM),
-    rear: fmtM(rearM),
-    points: { side: deepClone(sidePoints), rear: deepClone(rearPoints) },
-    reco
+  els.btnStop.addEventListener("click", () => {
+    wsDisconnect();
   });
-  renderSession();
-};
-els.btnExport.onclick = () => {
-  if(!session.id) newSession();
-  downloadJson(`${session.id}.json`, session);
-};
 
-els.btnDemoLoad.onclick = () => demoLoadScenario(els.demoScenario.value);
-els.btnSetBefore.onclick = () => setBefore();
-els.btnSetAfter.onclick = () => setAfter();
-els.btnClearBeforeAfter.onclick = () => clearBeforeAfter();
+  // start
+  setStatus("OFFLINE");
+  loadDemo(1);
 
-// ręczne korekty
-els.btnAdjSaddleDown.onclick = () => { adjSaddle(+5); updateAll(); };
-els.btnAdjSaddleUp.onclick   = () => { adjSaddle(-5); updateAll(); };
-els.btnAdjReachShorter.onclick = () => { adjReach(+10); updateAll(); };
-els.btnAdjReachLonger.onclick  = () => { adjReach(-10); updateAll(); };
-els.btnAdjReduceRock.onclick   = () => { reduceRocking(); updateAll(); };
-
-// AUTO-PO
-els.btnAutoAfter.onclick = () => {
-  const p = profile();
-  const sideM = computeSideMetrics(sidePoints);
-  const rearM = computeRearMetrics(rearPoints);
-  const actions = autoActionsFromMetrics(p, sideM, rearM);
-
-  if(!demoBefore) setBefore();
-
-  applyActions(actions);
-  rearHistory = [];
-  updateAll();
-
-  setAfter();
-  addTimelineStep(`AUTO-PO (${actions.map(a=>a.type+(a.mm?` ${a.mm}mm`:"")).join(", ") || "brak zmian"})`);
-};
-
-// timeline
-els.btnTLAdd.onclick = () => addTimelineStep("Krok (LIVE)");
-els.btnTLAddBefore.onclick = () => {
-  if(!demoBefore) return alert("Najpierw ustaw PRZED.");
-  timeline.push({
-    t: new Date().toISOString(),
-    label: "PRZED",
-    profile: profile(),
-    metrics: (()=>{ const m = metricsForState(demoBefore); return {side:fmtM(m.side), rear:fmtM(m.rear)}; })(),
-    reco: (()=>{ const m = metricsForState(demoBefore); return recommendations(profile(), m.side, m.rear); })(),
-    points: { side: deepClone(demoBefore.side), rear: deepClone(demoBefore.rear) }
+  // --- FIX: przy zmianie rozmiaru okna przerysuj canvasy (żeby punkty nie "uciekały") ---
+  let _resizeT = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(_resizeT);
+    _resizeT = setTimeout(() => {
+      updateHubUI();
+    }, 100);
   });
-  renderTimeline();
-};
-els.btnTLAddAfter.onclick = () => {
-  if(!demoAfter) return alert("Najpierw ustaw PO.");
-  timeline.push({
-    t: new Date().toISOString(),
-    label: "PO",
-    profile: profile(),
-    metrics: (()=>{ const m = metricsForState(demoAfter); return {side:fmtM(m.side), rear:fmtM(m.rear)}; })(),
-    reco: (()=>{ const m = metricsForState(demoAfter); return recommendations(profile(), m.side, m.rear); })(),
-    points: { side: deepClone(demoAfter.side), rear: deepClone(demoAfter.rear) }
-  });
-  renderTimeline();
-};
-els.btnTLClear.onclick = () => clearTimeline();
 
-/** =========================
- *  INIT
- *  ========================= */
-(function init(){
-  newSession();
-  demoLoadScenario("ok");
-  clearBeforeAfter();
-  renderTimeline();
-  updateAll();
 })();
-</script>
+  </script>
 </body>
 </html>
