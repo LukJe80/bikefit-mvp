@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Bikefit MVP (BOK + TYŁ) – 1 plik</title>
+<title>Bikefit MVP (BOK + TYŁ) – DEMO v2</title>
 <style>
   body{margin:0;font-family:system-ui,Arial;background:#0b0b0c;color:#fff}
   header{padding:12px 16px;background:#141416;border-bottom:1px solid #26262a}
@@ -31,11 +31,16 @@
   .snap{border:1px solid #2a2a2f;border-radius:12px;background:#101014;padding:10px}
   .snapHeader{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
   .tag{padding:4px 8px;border-radius:999px;border:1px solid #2a2a2f;background:#0f0f11;font-size:12px}
+
+  .demoGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:10px}
+  .demoBox{border:1px solid #2a2a2f;border-radius:12px;background:#101014;padding:10px}
+  .demoBox h3{margin:0 0 8px 0;font-size:14px}
+  .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace}
 </style>
 </head>
 <body>
 <header>
-  <h1>Bikefit MVP (BOK + TYŁ) – 1 plik</h1>
+  <h1>Bikefit MVP (BOK + TYŁ) – DEMO v2</h1>
 
   <div class="row">
     <label>Tryb:</label>
@@ -103,7 +108,7 @@
     <h2>Rekomendacje</h2>
     <div id="reco"></div>
     <small class="muted">
-      Uwaga: v1.1 to rekomendacje krokowe (3–5 mm, 5–10 mm, 10–15 mm) + re-test.
+      Uwaga: v1.1 to rekomendacje krokowe + re-test.
     </small>
   </section>
 
@@ -122,13 +127,57 @@
     </small>
   </section>
 
+  <!-- DEMO v2 -->
   <section class="card full" id="cardDemo">
-    <h2>DEMO – ręczne punkty (bez kamer)</h2>
-    <small>Możesz tu wkleić punkty i sprawdzić, czy rekomendacje działają zanim odpalisz kamery.</small>
-    <pre id="demoJson"></pre>
-    <button id="btnDemoGood">Wstaw “OK”</button>
-    <button id="btnDemoBadSaddle">Wstaw “siodło za wysoko”</button>
-    <button id="btnDemoBadReach">Wstaw “za długi reach”</button>
+    <h2>DEMO v2 – scenariusze + PRZED / PO</h2>
+
+    <div class="row">
+      <label>Scenariusz:</label>
+      <select id="demoScenario">
+        <option value="ok">OK (referencja)</option>
+        <option value="saddle_high">Siodło za wysoko</option>
+        <option value="saddle_low">Siodło za nisko</option>
+        <option value="reach_long">Za długi reach</option>
+        <option value="pelvis_asym">Asymetria miednicy</option>
+        <option value="shoulder_asym">Asymetria barków</option>
+        <option value="rocking_high">Mocny rocking</option>
+      </select>
+      <button id="btnDemoLoad">Wczytaj</button>
+
+      <span class="pill" id="demoStatePill">TRYB: LIVE</span>
+      <button id="btnSetBefore">Ustaw jako PRZED</button>
+      <button id="btnSetAfter">Ustaw jako PO</button>
+      <button id="btnClearBeforeAfter">Wyczyść PRZED/PO</button>
+    </div>
+
+    <div class="row">
+      <label>Korekty DEMO:</label>
+      <button id="btnAdjSaddleDown">Siodło -5mm</button>
+      <button id="btnAdjSaddleUp">Siodło +5mm</button>
+      <button id="btnAdjReachShorter">Reach -10mm</button>
+      <button id="btnAdjReachLonger">Reach +10mm</button>
+      <button id="btnAdjReduceRock">Zredukuj rocking</button>
+      <small class="muted">To są symulacje do testu logiki (nie fizyka 1:1).</small>
+    </div>
+
+    <div class="demoGrid">
+      <div class="demoBox">
+        <h3>PRZED – metryki</h3>
+        <pre class="mono" id="demoBeforeOut">brak</pre>
+      </div>
+      <div class="demoBox">
+        <h3>PO – metryki</h3>
+        <pre class="mono" id="demoAfterOut">brak</pre>
+      </div>
+      <div class="demoBox">
+        <h3>Różnice (PO - PRZED)</h3>
+        <pre class="mono" id="demoDeltaOut">brak</pre>
+      </div>
+      <div class="demoBox">
+        <h3>Aktualne punkty (LIVE)</h3>
+        <pre class="mono" id="demoJson">-</pre>
+      </div>
+    </div>
   </section>
 </main>
 
@@ -196,20 +245,17 @@ function drawDot(ctx,p,label){
   ctx.beginPath(); ctx.arc(p.x,p.y,8,0,Math.PI*2); ctx.stroke();
   ctx.fillText(label,p.x+10,p.y);
 }
+function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
 
 /** =========================
- *  Reco v1.1 (krokowo + mm)
+ *  Reco v1.1
  *  ========================= */
 function makeTargets(style){
-  // angle3 daje kąt wewnętrzny stawu (większy = bardziej wyprostowane)
-  // Progi MVP – będziemy kalibrować testami.
   return style==="road"
     ? { kneeBDP: [145, 160], elbow: [150, 175], rockingMax: 0.035 }
     : { kneeBDP: [140, 158], elbow: [155, 178], rockingMax: 0.045 };
 }
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function stepMmFromDelta(deltaDeg){
-  // bardzo proste mapowanie: większe odchylenie => większy krok w mm
   const ad = Math.abs(deltaDeg);
   if(ad < 2) return 0;
   if(ad < 4) return 3;
@@ -218,81 +264,73 @@ function stepMmFromDelta(deltaDeg){
   return 15;
 }
 function saddleStarterFromInseam(inseam_cm){
-  // LeMond: 0.883 * inseam (cm) -> wysokość siodła (środek suportu do szczytu siodła) w cm
   if(!inseam_cm || inseam_cm<=0) return null;
   return 0.883 * inseam_cm;
 }
-
 function recommendations(profile, sideMetrics, rearMetrics){
   const t = makeTargets(profile.style);
   const out = [];
 
-  const inseam = profile.inseam_cm || 0;
-  const starter = saddleStarterFromInseam(inseam);
+  const starter = saddleStarterFromInseam(profile.inseam_cm||0);
+  out.push({
+    lvl:"ok",
+    title:"Profil",
+    why:`Styl: ${profile.style.toUpperCase()}, wzrost: ${profile.height_cm||"-"} cm, przekrok: ${profile.inseam_cm||"-"} cm.`,
+    do: starter ? `Punkt startowy (orientacyjnie): wysokość siodła ~ ${starter.toFixed(1)} cm (0.883).` : `Dodaj przekrok, a policzę punkt startowy siodła.`
+  });
 
-  // 0) Profil
-  if(profile.height_cm || profile.inseam_cm){
-    out.push({lvl:"ok", title:"Profil zapisany",
-      why:`Styl: ${profile.style.toUpperCase()}, wzrost: ${profile.height_cm||"-"} cm, przekrok: ${profile.inseam_cm||"-"} cm.`,
-      do: starter ? `Punkt startowy (orientacyjnie): wysokość siodła ~ ${starter.toFixed(1)} cm (metoda 0.883). To tylko baza do dalszych testów.` :
-                    `Jeśli podasz przekrok, podpowiem orientacyjną wysokość startową siodła.`});
-  }
-
-  // 1) Siodło: kolano + rocking
+  // siodło
   if(Number.isFinite(sideMetrics.knee)){
     const knee = sideMetrics.knee;
-    const deltaHigh = knee - t.kneeBDP[1]; // dodatni = za prosto
-    const deltaLow  = t.kneeBDP[0] - knee; // dodatni = za mocno ugięte
-    const mmHigh = stepMmFromDelta(deltaHigh);
-    const mmLow  = stepMmFromDelta(deltaLow);
+    const deltaHigh = knee - t.kneeBDP[1];
+    const deltaLow  = t.kneeBDP[0] - knee;
+    const mmHigh = stepMmFromDelta(deltaHigh) || 5;
+    const mmLow  = stepMmFromDelta(deltaLow)  || 5;
 
     if(knee > t.kneeBDP[1] && Number.isFinite(rearMetrics.rocking) && rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"bad", title:"Siodło prawdopodobnie za wysoko",
-        why:`Kolano w BDP ~ ${knee.toFixed(1)}° (powyżej ${t.kneeBDP[1]}°) + rocking ${rearMetrics.rocking.toFixed(3)} (wysoki).`,
-        do:`Obniż siodło o ${mmHigh||5} mm i zrób re-test (10–20 obrotów). Jeśli dalej buja, kolejne -${mmHigh||5} mm.`});
+        why:`Kolano ~ ${knee.toFixed(1)}° (cel: ${t.kneeBDP[0]}–${t.kneeBDP[1]}°) + rocking ${rearMetrics.rocking.toFixed(3)} (wysoki).`,
+        do:`Obniż siodło o ${mmHigh} mm i re-test.`});
     } else if(knee > t.kneeBDP[1]){
       out.push({lvl:"warn", title:"Możliwe: siodło za wysoko",
-        why:`Kolano w BDP ~ ${knee.toFixed(1)}° (cel: ${t.kneeBDP[0]}–${t.kneeBDP[1]}°).`,
-        do:`Test: obniż siodło o ${mmHigh||3} mm, potem sprawdź komfort i rocking.`});
+        why:`Kolano ~ ${knee.toFixed(1)}° (powyżej ${t.kneeBDP[1]}°).`,
+        do:`Test: obniż o ${mmHigh} mm i re-test.`});
     } else if(knee < t.kneeBDP[0]){
       out.push({lvl:"warn", title:"Możliwe: siodło za nisko",
-        why:`Kolano w BDP ~ ${knee.toFixed(1)}° (poniżej ${t.kneeBDP[0]}°).`,
-        do:`Test: podnieś siodło o ${mmLow||3} mm i powtórz pomiar.`});
+        why:`Kolano ~ ${knee.toFixed(1)}° (poniżej ${t.kneeBDP[0]}°).`,
+        do:`Test: podnieś o ${mmLow} mm i re-test.`});
     } else {
       out.push({lvl:"ok", title:"Wysokość siodła wygląda OK (wg kolana)",
-        why:`Kolano w BDP ~ ${knee.toFixed(1)}° w zakresie ${t.kneeBDP[0]}–${t.kneeBDP[1]}°.`,
-        do:`Dalej oceniamy przód (reach/drop) i stabilność z tyłu.`});
+        why:`Kolano ~ ${knee.toFixed(1)}° w zakresie.`,
+        do:`OK. Dalej przód + stabilność.`});
     }
   } else {
     out.push({lvl:"warn", title:"Brak metryki kolana (BOK)",
-      why:"Nie wykryto hip/knee/ankle.", do:"Sprawdź markery i światło."});
+      why:"Nie wykryto hip/knee/ankle.", do:"Sprawdź markery/światło."});
   }
 
-  // 2) Reach / mostek: łokieć
+  // reach
   if(Number.isFinite(sideMetrics.elbow)){
     const e = sideMetrics.elbow;
     if(e > t.elbow[1]){
-      const d = e - t.elbow[1];
-      out.push({lvl:"warn", title:"Za proste ręce / możliwie za duży reach",
-        why:`Kąt łokcia ~ ${e.toFixed(1)}° (powyżej ${t.elbow[1]}°).`,
-        do:`Test A: krótszy mostek o 10 mm. Test B: podnieś kokpit 5–10 mm. Wybierz 1 zmianę i re-test.`});
+      out.push({lvl:"warn", title:"Możliwie za duży reach",
+        why:`Łokieć ~ ${e.toFixed(1)}° (powyżej ${t.elbow[1]}°).`,
+        do:`Test: krótszy mostek o 10 mm lub +5–10 mm podkładek. Re-test.`});
     } else if(e < t.elbow[0]){
-      out.push({lvl:"warn", title:"Bardzo ugięte łokcie / pozycja mocno “zebrana”",
-        why:`Kąt łokcia ~ ${e.toFixed(1)}° (poniżej ${t.elbow[0]}°).`,
-        do:`Jeśli to nie aero: dłuższy mostek (+10 mm) lub niżej uchwyty/zmiana chwytu. Re-test.`});
+      out.push({lvl:"warn", title:"Pozycja mocno zebrana",
+        why:`Łokieć ~ ${e.toFixed(1)}° (poniżej ${t.elbow[0]}°).`,
+        do:`Jeśli nie aero: dłuższy mostek +10 mm. Re-test.`});
     } else {
-      out.push({lvl:"ok", title:"Łokieć wygląda OK",
-        why:`Kąt łokcia ~ ${e.toFixed(1)}° w zakresie ${t.elbow[0]}–${t.elbow[1]}°.`,
-        do:"OK."});
+      out.push({lvl:"ok", title:"Łokieć wygląda OK", why:`Łokieć ~ ${e.toFixed(1)}° w zakresie.`, do:"OK."});
     }
   }
 
-  // 3) Stabilność tył
+  // rocking
   if(Number.isFinite(rearMetrics.rocking)){
     if(rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"warn", title:"Rocking miednicy podwyższony",
         why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)} (powyżej ${t.rockingMax}).`,
-        do:`Najczęściej: minimalnie za wysoko siodło lub zbyt agresywny przód. Testuj jedną zmianę naraz.`});
+        do:`Najczęściej: minimalnie za wysoko siodło lub zbyt agresywny przód. Testuj 1 zmianę.`});
     } else {
       out.push({lvl:"ok", title:"Stabilność miednicy OK",
         why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)} (<= ${t.rockingMax}).`,
@@ -300,10 +338,9 @@ function recommendations(profile, sideMetrics, rearMetrics){
     }
   }
 
-  // 4) Setback / sztyca (heurystyka v1 – prosta)
-  out.push({lvl:"ok", title:"Setback / sztyca (v1 – heurystyka)",
-    why:"W tej wersji setback podpowiadamy dopiero po dodaniu markera kolana względem osi pedału (KOPS) lub po modelu 3D.",
-    do:"W kolejnej wersji dołożymy KOPS i wtedy: setback / sztyca z offsetem będą bardziej precyzyjne."});
+  out.push({lvl:"ok", title:"Setback / sztyca (kolejna wersja)",
+    why:"W v2 dołożymy KOPS (kolano względem osi pedału) i wtedy setback/offset będą precyzyjniejsze.",
+    do:"Na teraz trzymamy się: wysokość siodła + reach + stabilność."});
 
   return out;
 }
@@ -335,20 +372,33 @@ const els = {
   sideOut: document.getElementById("sideOut"),
   rearOut: document.getElementById("rearOut"),
   reco: document.getElementById("reco"),
-  cardDemo: document.getElementById("cardDemo"),
-  demoJson: document.getElementById("demoJson"),
-  btnDemoGood: document.getElementById("btnDemoGood"),
-  btnDemoBadSaddle: document.getElementById("btnDemoBadSaddle"),
-  btnDemoBadReach: document.getElementById("btnDemoBadReach"),
   kpiKnee: document.getElementById("kpiKnee"),
   kpiElbow: document.getElementById("kpiElbow"),
   kpiRock: document.getElementById("kpiRock"),
+
   btnNewSession: document.getElementById("btnNewSession"),
   btnSnap: document.getElementById("btnSnap"),
   btnExport: document.getElementById("btnExport"),
   sessionInfo: document.getElementById("sessionInfo"),
   sessionId: document.getElementById("sessionId"),
   sessionList: document.getElementById("sessionList"),
+
+  // demo v2
+  demoScenario: document.getElementById("demoScenario"),
+  btnDemoLoad: document.getElementById("btnDemoLoad"),
+  demoStatePill: document.getElementById("demoStatePill"),
+  btnSetBefore: document.getElementById("btnSetBefore"),
+  btnSetAfter: document.getElementById("btnSetAfter"),
+  btnClearBeforeAfter: document.getElementById("btnClearBeforeAfter"),
+  btnAdjSaddleDown: document.getElementById("btnAdjSaddleDown"),
+  btnAdjSaddleUp: document.getElementById("btnAdjSaddleUp"),
+  btnAdjReachShorter: document.getElementById("btnAdjReachShorter"),
+  btnAdjReachLonger: document.getElementById("btnAdjReachLonger"),
+  btnAdjReduceRock: document.getElementById("btnAdjReduceRock"),
+  demoBeforeOut: document.getElementById("demoBeforeOut"),
+  demoAfterOut: document.getElementById("demoAfterOut"),
+  demoDeltaOut: document.getElementById("demoDeltaOut"),
+  demoJson: document.getElementById("demoJson"),
 };
 
 els.wsUrl.value = `ws://${location.hostname || "127.0.0.1"}:8181`;
@@ -366,25 +416,12 @@ function setStatus(text, ok){
 function setCams(online){
   els.cams.textContent = `SIDE: ${online.side ? "ON" : "-"} | REAR: ${online.rear ? "ON" : "-"}`;
 }
-
 function profile(){
   return {
     style: els.style.value,
     height_cm: Number(els.height.value||0),
     inseam_cm: Number(els.inseam.value||0)
   };
-}
-
-function renderReco(sideMetrics, rearMetrics){
-  const items = recommendations(profile(), sideMetrics, rearMetrics);
-  els.reco.innerHTML = items.map(it => `
-    <div class="item ${it.lvl}">
-      <div><b>${it.title}</b></div>
-      <div><small>${it.why}</small></div>
-      <div>${it.do}</div>
-    </div>
-  `).join("");
-  return items;
 }
 
 function computeSideMetrics(points){
@@ -411,8 +448,10 @@ function computeRearMetrics(points){
     const shoulderMid= { x:(points.l_shoulder.x+points.r_shoulder.x)/2, y:(points.l_shoulder.y+points.r_shoulder.y)/2 };
     const torsoH = Math.max(50, Math.abs(pelvisMid.y - shoulderMid.y));
     const tiltNorm = Math.abs(m.pelvisTilt) / torsoH;
+
     rearHistory.push(tiltNorm);
     if(rearHistory.length>120) rearHistory.shift();
+
     const max = Math.max(...rearHistory);
     const min = Math.min(...rearHistory);
     m.rocking = (max - min);
@@ -442,19 +481,150 @@ function drawPointsTo(canvas, points, title){
     ctx.fillText(k, x+8, y);
   }
 }
-
 function setKpi(sideM, rearM){
   els.kpiKnee.textContent = `Kolano: ${Number.isFinite(sideM.knee) ? sideM.knee.toFixed(1)+"°" : "-"}`;
   els.kpiElbow.textContent = `Łokieć: ${Number.isFinite(sideM.elbow) ? sideM.elbow.toFixed(1)+"°" : "-"}`;
   els.kpiRock.textContent = `Rocking: ${Number.isFinite(rearM.rocking) ? rearM.rocking.toFixed(3) : "-"}`;
 }
+function renderReco(sideMetrics, rearMetrics){
+  const items = recommendations(profile(), sideMetrics, rearMetrics);
+  els.reco.innerHTML = items.map(it => `
+    <div class="item ${it.lvl}">
+      <div><b>${it.title}</b></div>
+      <div><small>${it.why}</small></div>
+      <div>${it.do}</div>
+    </div>
+  `).join("");
+  return items;
+}
 
-/** =========== Sesja =========== */
-let session = {
-  id: null,
-  createdAt: null,
-  snaps: []
-};
+function updateHubUI(){
+  const sideM = computeSideMetrics(sidePoints);
+  const rearM = computeRearMetrics(rearPoints);
+
+  drawPointsTo(els.sideCanvas, sidePoints, "BOK (punkty)");
+  drawPointsTo(els.rearCanvas, rearPoints, "TYŁ (punkty)");
+
+  els.sideOut.textContent = JSON.stringify({points: sidePoints, metrics: sideM}, null, 2);
+  els.rearOut.textContent = JSON.stringify({points: rearPoints, metrics: rearM}, null, 2);
+
+  setKpi(sideM, rearM);
+  renderReco(sideM, rearM);
+
+  // DEMO v2 podgląd live
+  els.demoJson.textContent = JSON.stringify({side: sidePoints, rear: rearPoints}, null, 2);
+  demoRenderCompare();
+}
+
+/** =========================
+ *  WebSocket
+ *  ========================= */
+function connectWS(){
+  const url = els.wsUrl.value.trim();
+  if(!url) return alert("Podaj WS URL (np. ws://IP:8181)");
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    setStatus("ONLINE", true);
+    ws.send(JSON.stringify({type:"join", room: els.room.value.trim()||"default", role: currentRole()}));
+  };
+  ws.onclose = () => setStatus("OFFLINE", false);
+  ws.onerror = () => setStatus("ERROR", false);
+
+  ws.onmessage = (ev) => {
+    let msg; try{ msg = JSON.parse(ev.data);}catch{ return; }
+    if(msg.type==="status"){ setCams(msg.online||{side:false,rear:false}); }
+    if(msg.type==="points"){
+      if(msg.role==="side") sidePoints = msg.points;
+      if(msg.role==="rear") rearPoints = msg.points;
+      if(els.mode.value==="hub") updateHubUI();
+    }
+    if(msg.type==="cmd"){
+      if(msg.cmd==="start"){ running = true; camLoop(); }
+      if(msg.cmd==="stop"){ running = false; }
+    }
+  };
+}
+function sendCmd(cmd){
+  if(ws && ws.readyState===1){
+    ws.send(JSON.stringify({type:"cmd", room: els.room.value.trim()||"default", cmd}));
+  }
+}
+
+/** =========================
+ *  Kamera (telefony) – bez zmian logicznych
+ *  ========================= */
+let stream = null;
+let facing = "environment";
+const ctx = els.c.getContext("2d", { willReadFrequently: true });
+
+async function startCamera(){
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width:{ideal:1280}, height:{ideal:720} },
+    audio: false
+  });
+  els.v.srcObject = stream;
+}
+function currentRole(){
+  if(els.mode.value==="hub") return "hub";
+  if(els.mode.value==="cam_side") return "side";
+  if(els.mode.value==="cam_rear") return "rear";
+  return "hub";
+}
+function detectPoints(role, img, w, h){
+  if(role==="side"){
+    return {
+      hip:   findCentroid(img,w,h,HSV.neonGreen),
+      knee:  findCentroid(img,w,h,HSV.pinkWrap),
+      ankle: findCentroid(img,w,h,HSV.cyan),
+      shoulder: findCentroid(img,w,h,HSV.orange),
+      elbow:    findCentroid(img,w,h,HSV.yellow),
+      wrist:    findCentroid(img,w,h,HSV.purple),
+    };
+  }
+  return {
+    l_shoulder: findCentroid(img,w,h,HSV.orange),
+    r_shoulder: findCentroid(img,w,h,HSV.yellow),
+    l_pelvis:   findCentroid(img,w,h,HSV.neonGreen),
+    r_pelvis:   findCentroid(img,w,h,HSV.pinkWrap),
+  };
+}
+function camLoop(){
+  const role = currentRole();
+  if(!(role==="side"||role==="rear")) return;
+  if(!running) return;
+
+  if(!els.v.videoWidth){ requestAnimationFrame(camLoop); return; }
+
+  const w = els.v.videoWidth, h = els.v.videoHeight;
+  els.c.width = w; els.c.height = h;
+  ctx.drawImage(els.v,0,0,w,h);
+  const img = ctx.getImageData(0,0,w,h);
+  const pts = detectPoints(role, img, w, h);
+
+  ctx.lineWidth = 3; ctx.font = "16px system-ui";
+  for(const [k,p] of Object.entries(pts)){
+    if(!p) continue;
+    drawDot(ctx, p, k);
+  }
+
+  const payload = {};
+  for(const [k,p] of Object.entries(pts)){
+    payload[k] = p ? {x:p.x, y:p.y} : null;
+  }
+  els.camOut.textContent = JSON.stringify(payload, null, 2);
+
+  if(ws && ws.readyState===1){
+    ws.send(JSON.stringify({type:"points", t: performance.now(), role, points: payload}));
+  }
+  requestAnimationFrame(camLoop);
+}
+
+/** =========================
+ *  Sesja
+ *  ========================= */
+let session = { id:null, createdAt:null, snaps:[] };
 function newSession(){
   session = {
     id: `S-${Math.random().toString(16).slice(2,8)}-${Date.now().toString(16).slice(-6)}`.toUpperCase(),
@@ -513,152 +683,156 @@ els.btnExport.onclick = () => {
 };
 
 /** =========================
- *  HUB update
+ *  DEMO v2
  *  ========================= */
-function updateHubUI(){
-  const sideM = computeSideMetrics(sidePoints);
-  const rearM = computeRearMetrics(rearPoints);
-
-  drawPointsTo(els.sideCanvas, sidePoints, "BOK (punkty)");
-  drawPointsTo(els.rearCanvas, rearPoints, "TYŁ (punkty)");
-
-  els.sideOut.textContent =
-    JSON.stringify({points: sidePoints, metrics: sideM}, null, 2);
-  els.rearOut.textContent =
-    JSON.stringify({points: rearPoints, metrics: rearM}, null, 2);
-
-  setKpi(sideM, rearM);
-  renderReco(sideM, rearM);
-}
-
-/** =========== WebSocket =========== */
-function connectWS(){
-  const url = els.wsUrl.value.trim();
-  if(!url) return alert("Podaj WS URL (np. ws://IP:8181)");
-  ws = new WebSocket(url);
-
-  ws.onopen = () => {
-    setStatus("ONLINE", true);
-    ws.send(JSON.stringify({type:"join", room: els.room.value.trim()||"default", role: currentRole()}));
-  };
-  ws.onclose = () => setStatus("OFFLINE", false);
-  ws.onerror = () => setStatus("ERROR", false);
-
-  ws.onmessage = (ev) => {
-    let msg; try{ msg = JSON.parse(ev.data);}catch{ return; }
-    if(msg.type==="status"){ setCams(msg.online||{side:false,rear:false}); }
-    if(msg.type==="points"){
-      if(msg.role==="side") sidePoints = msg.points;
-      if(msg.role==="rear") rearPoints = msg.points;
-      if(els.mode.value==="hub") updateHubUI();
-    }
-    if(msg.type==="cmd"){
-      if(msg.cmd==="start"){ running = true; camLoop(); }
-      if(msg.cmd==="stop"){ running = false; }
-    }
-  };
-}
-function sendCmd(cmd){
-  if(ws && ws.readyState===1){
-    ws.send(JSON.stringify({type:"cmd", room: els.room.value.trim()||"default", cmd}));
+const DEMO_PRESETS = {
+  ok: {
+    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
+    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
+  },
+  saddle_high: {
+    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:610,y:520}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
+    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:345}, r_pelvis:{x:500,y:390} }
+  },
+  saddle_low: {
+    side: { hip:{x:400,y:300}, knee:{x:520,y:430}, ankle:{x:550,y:590}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
+    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:450,y:370}, r_pelvis:{x:490,y:372} }
+  },
+  reach_long: {
+    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:235,y:215}, wrist:{x:145,y:215} },
+    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
+  },
+  pelvis_asym: {
+    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
+    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:340}, r_pelvis:{x:500,y:395} }
+  },
+  shoulder_asym: {
+    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
+    rear: { l_shoulder:{x:420,y:185}, r_shoulder:{x:520,y:220}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
+  },
+  rocking_high: {
+    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:600,y:520}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
+    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:330}, r_pelvis:{x:500,y:410} }
   }
-}
+};
 
-/** =========== Kamera =========== */
-let stream = null;
-let facing = "environment";
-const ctx = els.c.getContext("2d", { willReadFrequently: true });
+let demoBefore = null; // {side,rear}
+let demoAfter  = null; // {side,rear}
 
-async function startCamera(){
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facing, width:{ideal:1280}, height:{ideal:720} },
-    audio: false
-  });
-  els.v.srcObject = stream;
-}
-
-function currentRole(){
-  if(els.mode.value==="hub") return "hub";
-  if(els.mode.value==="cam_side") return "side";
-  if(els.mode.value==="cam_rear") return "rear";
-  return "hub";
-}
-
-function detectPoints(role, img, w, h){
-  if(role==="side"){
-    return {
-      hip:   findCentroid(img,w,h,HSV.neonGreen),
-      knee:  findCentroid(img,w,h,HSV.pinkWrap),
-      ankle: findCentroid(img,w,h,HSV.cyan),
-      shoulder: findCentroid(img,w,h,HSV.orange),
-      elbow:    findCentroid(img,w,h,HSV.yellow),
-      wrist:    findCentroid(img,w,h,HSV.purple),
-    };
-  }
-  return {
-    l_shoulder: findCentroid(img,w,h,HSV.orange),
-    r_shoulder: findCentroid(img,w,h,HSV.yellow),
-    l_pelvis:   findCentroid(img,w,h,HSV.neonGreen),
-    r_pelvis:   findCentroid(img,w,h,HSV.pinkWrap),
-  };
-}
-
-function camLoop(){
-  const role = currentRole();
-  if(!(role==="side"||role==="rear")) return;
-  if(!running) return;
-
-  if(!els.v.videoWidth){ requestAnimationFrame(camLoop); return; }
-
-  const w = els.v.videoWidth, h = els.v.videoHeight;
-  els.c.width = w; els.c.height = h;
-  ctx.drawImage(els.v,0,0,w,h);
-  const img = ctx.getImageData(0,0,w,h);
-  const pts = detectPoints(role, img, w, h);
-
-  ctx.lineWidth = 3; ctx.font = "16px system-ui";
-  for(const [k,p] of Object.entries(pts)){
-    if(!p) continue;
-    drawDot(ctx, p, k);
-  }
-
-  const payload = {};
-  for(const [k,p] of Object.entries(pts)){
-    payload[k] = p ? {x:p.x, y:p.y} : null;
-  }
-  els.camOut.textContent = JSON.stringify(payload, null, 2);
-
-  if(ws && ws.readyState===1){
-    ws.send(JSON.stringify({type:"points", t: performance.now(), role, points: payload}));
-  }
-
-  requestAnimationFrame(camLoop);
-}
-
-/** ======= DEMO (bez kamer) ======= */
-let demoState = { side: null, rear: null };
-function setDemo(state){
-  demoState = state;
-  els.demoJson.textContent = JSON.stringify(demoState, null, 2);
-  sidePoints = demoState.side;
-  rearPoints = demoState.rear;
+function demoLoadScenario(key){
+  const preset = DEMO_PRESETS[key] || DEMO_PRESETS.ok;
+  sidePoints = deepClone(preset.side);
+  rearPoints = deepClone(preset.rear);
+  rearHistory = []; // reset historii rocking
+  els.demoStatePill.textContent = `TRYB: LIVE (${key})`;
   updateHubUI();
 }
-els.btnDemoGood.onclick = () => setDemo({
-  side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-  rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
-});
-els.btnDemoBadSaddle.onclick = () => setDemo({
-  side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:600,y:520}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-  rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:340}, r_pelvis:{x:500,y:390} }
-});
-els.btnDemoBadReach.onclick = () => setDemo({
-  side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:230,y:210}, wrist:{x:150,y:220} },
-  rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
-});
+function demoSetBefore(){
+  demoBefore = { side: deepClone(sidePoints), rear: deepClone(rearPoints) };
+  els.demoStatePill.textContent = `TRYB: LIVE (PRZED ustawione)`;
+  demoRenderCompare();
+}
+function demoSetAfter(){
+  demoAfter = { side: deepClone(sidePoints), rear: deepClone(rearPoints) };
+  els.demoStatePill.textContent = `TRYB: LIVE (PO ustawione)`;
+  demoRenderCompare();
+}
+function demoClearBeforeAfter(){
+  demoBefore = null;
+  demoAfter = null;
+  els.demoBeforeOut.textContent = "brak";
+  els.demoAfterOut.textContent = "brak";
+  els.demoDeltaOut.textContent = "brak";
+  els.demoStatePill.textContent = "TRYB: LIVE";
+}
+function fmtM(m){
+  return {
+    knee: Number.isFinite(m.knee) ? Number(m.knee.toFixed(2)) : null,
+    elbow: Number.isFinite(m.elbow) ? Number(m.elbow.toFixed(2)) : null,
+    rocking: Number.isFinite(m.rocking) ? Number(m.rocking.toFixed(4)) : null,
+  };
+}
+function demoComputeMetrics(state){
+  const sideM = computeSideMetrics(state?.side);
+  const rearM = computeRearMetrics(state?.rear);
+  return { side: sideM, rear: rearM };
+}
+function demoRenderCompare(){
+  if(demoBefore){
+    const mb = demoComputeMetrics(demoBefore);
+    els.demoBeforeOut.textContent = JSON.stringify({ side: fmtM(mb.side), rear: fmtM(mb.rear) }, null, 2);
+  } else {
+    els.demoBeforeOut.textContent = "brak";
+  }
+  if(demoAfter){
+    // UWAGA: computeRearMetrics używa historii, więc do porównania liczymy "statycznie":
+    // zrobimy uproszczenie: rocking wyliczamy jako abs(tilt)/torsoH * 0.06 (symulacja)
+    const sideM = computeSideMetrics(demoAfter.side);
+    const rearM = computeRearMetrics(demoAfter.rear);
+    els.demoAfterOut.textContent = JSON.stringify({ side: fmtM(sideM), rear: fmtM(rearM) }, null, 2);
+  } else {
+    els.demoAfterOut.textContent = "brak";
+  }
 
-/** ======= UI zachowanie ======= */
+  if(demoBefore && demoAfter){
+    // delta (po - przed)
+    const mb = demoComputeMetrics(demoBefore);
+    const ma = demoComputeMetrics(demoAfter);
+    const d = {
+      knee: (Number.isFinite(ma.side.knee) && Number.isFinite(mb.side.knee)) ? Number((ma.side.knee - mb.side.knee).toFixed(2)) : null,
+      elbow:(Number.isFinite(ma.side.elbow)&& Number.isFinite(mb.side.elbow))? Number((ma.side.elbow - mb.side.elbow).toFixed(2)) : null,
+      rocking:(Number.isFinite(ma.rear.rocking) && Number.isFinite(mb.rear.rocking)) ? Number((ma.rear.rocking - mb.rear.rocking).toFixed(4)) : null
+    };
+    els.demoDeltaOut.textContent = JSON.stringify(d, null, 2);
+  } else {
+    els.demoDeltaOut.textContent = "brak";
+  }
+}
+
+// Korekty DEMO – proste przekształcenia punktów (symulacje)
+function adjSaddle(mm){
+  // mm -> px w DEMO (umownie)
+  const px = mm * 1.2;
+  // "siodło niżej" zwykle zwiększa ugięcie kolana -> w DEMO przesuwamy ankle w dół i minimalnie knee
+  if(sidePoints?.ankle) sidePoints.ankle.y += px;
+  if(sidePoints?.knee)  sidePoints.knee.y  += px*0.4;
+  // rocking często maleje przy poprawie -> trochę wyrównujemy miednicę
+  if(rearPoints?.l_pelvis && rearPoints?.r_pelvis){
+    rearPoints.l_pelvis.y += px*0.2;
+    rearPoints.r_pelvis.y += px*0.2;
+  }
+  updateHubUI();
+}
+function adjReach(mm){
+  const px = mm * 1.0; // 10mm -> 10px
+  // reach krótszy: nadgarstek i łokieć bliżej barku (x w prawo w naszym DEMO? u nas "dłoń" jest bardziej w lewo)
+  if(sidePoints?.wrist) sidePoints.wrist.x += px;
+  if(sidePoints?.elbow) sidePoints.elbow.x += px*0.6;
+  updateHubUI();
+}
+function reduceRocking(){
+  if(rearPoints?.l_pelvis && rearPoints?.r_pelvis){
+    const mid = (rearPoints.l_pelvis.y + rearPoints.r_pelvis.y) / 2;
+    rearPoints.l_pelvis.y = mid - 2;
+    rearPoints.r_pelvis.y = mid + 2;
+  }
+  updateHubUI();
+}
+
+els.btnDemoLoad.onclick = () => demoLoadScenario(els.demoScenario.value);
+els.btnSetBefore.onclick = () => demoSetBefore();
+els.btnSetAfter.onclick = () => demoSetAfter();
+els.btnClearBeforeAfter.onclick = () => demoClearBeforeAfter();
+
+els.btnAdjSaddleDown.onclick = () => adjSaddle(+5);   // "siodło -5mm" => w DEMO przesuwamy dół segmentu nogi tak, by kolano się zgięło
+els.btnAdjSaddleUp.onclick   = () => adjSaddle(-5);   // "siodło +5mm"
+els.btnAdjReachShorter.onclick = () => adjReach(+10); // reach -10mm => w DEMO ręka "wraca" (x rośnie)
+els.btnAdjReachLonger.onclick  = () => adjReach(-10); // reach +10mm
+els.btnAdjReduceRock.onclick   = () => reduceRocking();
+
+/** =========================
+ *  UI zachowanie
+ *  ========================= */
 function applyMode(){
   const m = els.mode.value;
   const isCam = (m==="cam_side" || m==="cam_rear");
@@ -666,17 +840,20 @@ function applyMode(){
   const isDemo= (m==="demo");
 
   els.cardCam.style.display = isCam ? "" : "none";
-  els.cardSide.style.display = isHub || isDemo ? "" : "none";
-  els.cardRear.style.display = isHub || isDemo ? "" : "none";
-  els.cardDemo.style.display = isDemo ? "" : "none";
+  document.getElementById("cardSide").style.display = (isHub || isDemo) ? "" : "none";
+  document.getElementById("cardRear").style.display = (isHub || isDemo) ? "" : "none";
+  document.getElementById("cardDemo").style.display = isDemo ? "" : "none";
 
   if(isCam){
     els.rolePill.textContent = `ROLE: ${m==="cam_side" ? "SIDE" : "REAR"}`;
     els.camTitle.textContent = `Kamera ${m==="cam_side" ? "BOK" : "TYŁ"}`;
   }
+  if(isDemo){
+    // w demo od razu render
+    updateHubUI();
+  }
 }
 els.mode.onchange = applyMode;
-applyMode();
 
 els.btnConnect.onclick = () => connectWS();
 els.btnStart.onclick = () => { running = true; sendCmd("start"); camLoop(); };
@@ -687,17 +864,14 @@ els.btnSwitchCam.onclick = async () => {
   try{ await startCamera(); }catch(e){ alert("Nie mogę uruchomić kamery: " + e.message); }
 };
 
-// auto start
+// init
 (async () => {
   if(!session.id) newSession();
+  applyMode();
 
-  if(els.mode.value.startsWith("cam")){
-    try{ await startCamera(); }catch{}
-  }
-  setDemo({
-    side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
-    rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
-  });
+  // start demo by default
+  demoLoadScenario("ok");
+  demoClearBeforeAfter();
 })();
 </script>
 </body>
