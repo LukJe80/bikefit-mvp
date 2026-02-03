@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Bikefit MVP (BOK + TYŁ) – DEMO v3</title>
+<title>Bikefit MVP (BOK + TYŁ) – DEMO v3.1</title>
 <style>
   body{margin:0;font-family:system-ui,Arial;background:#0b0b0c;color:#fff}
   header{padding:12px 16px;background:#141416;border-bottom:1px solid #26262a}
@@ -49,8 +49,6 @@
 
   /* Client mode */
   body.client header,
-  body.client #cardSide,
-  body.client #cardRear,
   body.client #cardDemo pre,
   body.client #sessionList details,
   body.client #debugNote { display:none !important; }
@@ -66,7 +64,7 @@
 
 <body>
 <header>
-  <h1>Bikefit MVP (BOK + TYŁ) – DEMO v3</h1>
+  <h1>Bikefit MVP (BOK + TYŁ) – DEMO v3.1</h1>
 
   <div class="row">
     <label>Tryb:</label>
@@ -120,13 +118,13 @@
   </section>
 
   <section class="card" id="cardSide">
-    <h2>BOK – metryki</h2>
+    <h2>BOK – punkty + metryki</h2>
     <canvas id="sideCanvas"></canvas>
     <pre id="sideOut"></pre>
   </section>
 
   <section class="card" id="cardRear">
-    <h2>TYŁ – metryki</h2>
+    <h2>TYŁ – punkty + metryki</h2>
     <canvas id="rearCanvas"></canvas>
     <pre id="rearOut"></pre>
   </section>
@@ -135,7 +133,7 @@
     <h2>Rekomendacje</h2>
     <div id="reco"></div>
     <small class="muted">
-      DEMO v3: możesz zrobić PRZED → AUTO-PO → PO i dodać kroki do timeline.
+      DEMO v3.1: PRZED → AUTO-PO → PO + timeline. Punkty wróciły na canvasy.
     </small>
   </section>
 
@@ -154,7 +152,7 @@
 
   <!-- DEMO v3 -->
   <section class="card full" id="cardDemo">
-    <h2>DEMO v3 – AUTO-PO + timeline</h2>
+    <h2>DEMO v3.1 – AUTO-PO + timeline</h2>
 
     <div class="row">
       <label>Scenariusz:</label>
@@ -218,11 +216,9 @@
 
 <script>
 /** =========================
- *  Utils + punkty DEMO
+ *  Utils
  *  ========================= */
 function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
-function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-
 function angle3(a,b,c){
   if(!a||!b||!c) return NaN;
   const ba={x:a.x-b.x, y:a.y-b.y};
@@ -236,7 +232,37 @@ function angle3(a,b,c){
 }
 
 /** =========================
- *  Reco v1.1 (progowe)
+ *  Rysowanie punktów (WRACA!)
+ *  ========================= */
+function drawPointsTo(canvas, points, title){
+  const ctx = canvas.getContext("2d");
+  canvas.width = 640; canvas.height = 360;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  ctx.lineWidth = 2;
+  ctx.font = "14px system-ui";
+  ctx.strokeStyle = "#fff";
+  ctx.fillStyle = "#fff";
+
+  ctx.fillText(title, 10, 20);
+
+  if(!points){
+    ctx.fillText("brak punktów", 10, 45);
+    return;
+  }
+
+  // zakładamy 1280x720 -> 640x360 (x0.5)
+  for(const [k,p] of Object.entries(points)){
+    if(!p) continue;
+    const x = p.x * 0.5;
+    const y = p.y * 0.5;
+    ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.stroke();
+    ctx.fillText(k, x+8, y);
+  }
+}
+
+/** =========================
+ *  Reco
  *  ========================= */
 function makeTargets(style){
   return style==="road"
@@ -267,7 +293,6 @@ function recommendations(profile, sideMetrics, rearMetrics){
     do: starter ? `Punkt startowy (orientacyjnie): wysokość siodła ~ ${starter.toFixed(1)} cm (0.883).` : `Dodaj przekrok, a policzę punkt startowy siodła.`
   });
 
-  // siodło (kolano + rocking)
   if(Number.isFinite(sideMetrics.knee)){
     const knee = sideMetrics.knee;
     const deltaHigh = knee - t.kneeBDP[1];
@@ -277,7 +302,7 @@ function recommendations(profile, sideMetrics, rearMetrics){
 
     if(knee > t.kneeBDP[1] && Number.isFinite(rearMetrics.rocking) && rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"bad", title:"Siodło prawdopodobnie za wysoko",
-        why:`Kolano ~ ${knee.toFixed(1)}° (cel: ${t.kneeBDP[0]}–${t.kneeBDP[1]}°) + rocking ${rearMetrics.rocking.toFixed(3)} (wysoki).`,
+        why:`Kolano ~ ${knee.toFixed(1)}° + rocking ${rearMetrics.rocking.toFixed(3)} (wysoki).`,
         do:`Obniż siodło o ${mmHigh} mm i re-test.`});
     } else if(knee > t.kneeBDP[1]){
       out.push({lvl:"warn", title:"Możliwe: siodło za wysoko",
@@ -297,14 +322,12 @@ function recommendations(profile, sideMetrics, rearMetrics){
       why:"Nie wykryto hip/knee/ankle.", do:"Sprawdź markery/światło."});
   }
 
-  // reach
   if(Number.isFinite(sideMetrics.elbow)){
-    const t = makeTargets(profile.style);
     const e = sideMetrics.elbow;
     if(e > t.elbow[1]){
       out.push({lvl:"warn", title:"Możliwie za duży reach",
         why:`Łokieć ~ ${e.toFixed(1)}° (powyżej ${t.elbow[1]}°).`,
-        do:`Test: krótszy mostek o 10 mm lub +5–10 mm podkładek. Re-test.`});
+        do:`Test: krótszy mostek 10 mm lub +5–10 mm podkładek. Re-test.`});
     } else if(e < t.elbow[0]){
       out.push({lvl:"warn", title:"Pozycja mocno zebrana",
         why:`Łokieć ~ ${e.toFixed(1)}° (poniżej ${t.elbow[0]}°).`,
@@ -314,13 +337,11 @@ function recommendations(profile, sideMetrics, rearMetrics){
     }
   }
 
-  // rocking
   if(Number.isFinite(rearMetrics.rocking)){
-    const t = makeTargets(profile.style);
     if(rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"warn", title:"Rocking miednicy podwyższony",
         why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)} (powyżej ${t.rockingMax}).`,
-        do:`Najczęściej: minimalnie za wysoko siodło lub zbyt agresywny przód. Testuj 1 zmianę.`});
+        do:`Najczęściej: minimalnie za wysoko siodło lub zbyt agresywny przód.`});
     } else {
       out.push({lvl:"ok", title:"Stabilność miednicy OK",
         why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)}.`,
@@ -336,7 +357,7 @@ function recommendations(profile, sideMetrics, rearMetrics){
 }
 
 /** =========================
- *  Metryki z punktów
+ *  Metryki
  *  ========================= */
 function computeSideMetrics(points){
   const m = { knee: NaN, hip: NaN, elbow: NaN };
@@ -345,16 +366,13 @@ function computeSideMetrics(points){
   if(points?.shoulder && points?.elbow && points?.wrist) m.elbow = angle3(points.shoulder, points.elbow, points.wrist);
   return m;
 }
+
 let rearHistory = [];
 function computeRearMetrics(points){
   const m = { rocking: NaN, pelvisTilt: NaN, shoulderTilt: NaN };
 
-  if(points?.l_pelvis && points?.r_pelvis){
-    m.pelvisTilt = points.l_pelvis.y - points.r_pelvis.y;
-  }
-  if(points?.l_shoulder && points?.r_shoulder){
-    m.shoulderTilt = points.l_shoulder.y - points.r_shoulder.y;
-  }
+  if(points?.l_pelvis && points?.r_pelvis) m.pelvisTilt = points.l_pelvis.y - points.r_pelvis.y;
+  if(points?.l_shoulder && points?.r_shoulder) m.shoulderTilt = points.l_shoulder.y - points.r_shoulder.y;
 
   if(points?.l_pelvis && points?.r_pelvis && points?.l_shoulder && points?.r_shoulder){
     const pelvisMid = { x:(points.l_pelvis.x+points.r_pelvis.x)/2, y:(points.l_pelvis.y+points.r_pelvis.y)/2 };
@@ -370,6 +388,14 @@ function computeRearMetrics(points){
     m.rocking = (max - min);
   }
   return m;
+}
+
+function fmtM(m){
+  return {
+    knee: Number.isFinite(m.knee) ? Number(m.knee.toFixed(2)) : null,
+    elbow: Number.isFinite(m.elbow) ? Number(m.elbow.toFixed(2)) : null,
+    rocking: Number.isFinite(m.rocking) ? Number(m.rocking.toFixed(4)) : null,
+  };
 }
 
 /** =========================
@@ -394,12 +420,13 @@ const els = {
   kpiElbow: document.getElementById("kpiElbow"),
   kpiRock: document.getElementById("kpiRock"),
 
-  cardCam: document.getElementById("cardCam"),
+  sideCanvas: document.getElementById("sideCanvas"),
+  rearCanvas: document.getElementById("rearCanvas"),
+  sideOut: document.getElementById("sideOut"),
+  rearOut: document.getElementById("rearOut"),
 
-  // reco
   reco: document.getElementById("reco"),
 
-  // session
   btnNewSession: document.getElementById("btnNewSession"),
   btnSnap: document.getElementById("btnSnap"),
   btnExport: document.getElementById("btnExport"),
@@ -407,7 +434,6 @@ const els = {
   sessionId: document.getElementById("sessionId"),
   sessionList: document.getElementById("sessionList"),
 
-  // demo
   demoScenario: document.getElementById("demoScenario"),
   btnDemoLoad: document.getElementById("btnDemoLoad"),
   demoStatePill: document.getElementById("demoStatePill"),
@@ -439,20 +465,15 @@ els.wsUrl.value = `ws://${location.hostname || "127.0.0.1"}:8181`;
 /** =========================
  *  State
  *  ========================= */
-let ws = null;
-let running = false;
 let clientMode = false;
-
 let sidePoints = null;
 let rearPoints = null;
-
 let demoBefore = null;
 let demoAfter  = null;
-
-let timeline = []; // steps: {t,label,profile,metrics,reco,points}
+let timeline = [];
 
 /** =========================
- *  UI helpers
+ *  Helpers UI
  *  ========================= */
 function profile(){
   return {
@@ -460,13 +481,6 @@ function profile(){
     height_cm: Number(els.height.value||0),
     inseam_cm: Number(els.inseam.value||0)
   };
-}
-function setStatus(text, ok){
-  els.status.textContent = text;
-  els.status.style.borderColor = ok ? "#2a6a3a" : "#6a2a2a";
-}
-function setCams(online){
-  els.cams.textContent = `SIDE: ${online.side ? "ON" : "-"} | REAR: ${online.rear ? "ON" : "-"}`;
 }
 function setKpi(sideM, rearM){
   els.kpiKnee.textContent = `Kolano: ${Number.isFinite(sideM.knee) ? sideM.knee.toFixed(1)+"°" : "-"}`;
@@ -484,14 +498,6 @@ function renderReco(sideM, rearM){
     </div>
   `).join("");
   return items;
-}
-
-function fmtM(m){
-  return {
-    knee: Number.isFinite(m.knee) ? Number(m.knee.toFixed(2)) : null,
-    elbow: Number.isFinite(m.elbow) ? Number(m.elbow.toFixed(2)) : null,
-    rocking: Number.isFinite(m.rocking) ? Number(m.rocking.toFixed(4)) : null,
-  };
 }
 
 /** =========================
@@ -538,10 +544,9 @@ function demoLoadScenario(key){
 }
 
 /** =========================
- *  DEMO "korekty" – symulacje
+ *  DEMO korekty
  *  ========================= */
 function adjSaddle(mm){
-  // mm -> px w DEMO (umownie)
   const px = mm * 1.2;
   if(sidePoints?.ankle) sidePoints.ankle.y += px;
   if(sidePoints?.knee)  sidePoints.knee.y  += px*0.4;
@@ -564,38 +569,31 @@ function reduceRocking(){
 }
 
 /** =========================
- *  AUTO-PO: decyzja z metryk
+ *  AUTO-PO
  *  ========================= */
 function autoActionsFromMetrics(p, sideM, rearM){
   const t = makeTargets(p.style);
   const actions = [];
 
-  // Siodło: jeśli kolano za prosto -> obniż; jeśli za mocno ugięte -> podnieś
   if(Number.isFinite(sideM.knee)){
     if(sideM.knee > t.kneeBDP[1]){
       const mm = stepMmFromDelta(sideM.knee - t.kneeBDP[1]) || 5;
-      actions.push({type:"saddle", mm:+mm}); // w DEMO: +mm => "w dół nogi", czyli siodło w dół
+      actions.push({type:"saddle", mm:+mm});
     } else if(sideM.knee < t.kneeBDP[0]){
       const mm = stepMmFromDelta(t.kneeBDP[0] - sideM.knee) || 5;
-      actions.push({type:"saddle", mm:-mm}); // "w górę"
+      actions.push({type:"saddle", mm:-mm});
     }
   }
 
-  // Reach: jeśli łokieć za prosty -> skróć reach; jeśli za mocno ugięty -> wydłuż
   if(Number.isFinite(sideM.elbow)){
-    if(sideM.elbow > t.elbow[1]){
-      actions.push({type:"reach", mm:+10}); // skróć reach o 10mm (w DEMO: +mm przesuwa rękę "do środka")
-    } else if(sideM.elbow < t.elbow[0]){
-      actions.push({type:"reach", mm:-10}); // wydłuż
-    }
+    if(sideM.elbow > t.elbow[1]) actions.push({type:"reach", mm:+10});
+    else if(sideM.elbow < t.elbow[0]) actions.push({type:"reach", mm:-10});
   }
 
-  // Rocking: jeśli za duży, spróbuj redukcji
   if(Number.isFinite(rearM.rocking) && rearM.rocking > t.rockingMax){
     actions.push({type:"rocking", on:true});
   }
 
-  // Priorytet: jedna zmiana naraz? -> w DEMO robimy max 2 akcje + rocking
   const out = [];
   for(const a of actions){
     if(a.type==="rocking"){ out.push(a); continue; }
@@ -603,7 +601,6 @@ function autoActionsFromMetrics(p, sideM, rearM){
   }
   return out;
 }
-
 function applyActions(actions){
   for(const a of actions){
     if(a.type==="saddle") adjSaddle(a.mm);
@@ -613,7 +610,7 @@ function applyActions(actions){
 }
 
 /** =========================
- *  PRZED/PO + porównanie
+ *  PRZED/PO porównanie
  *  ========================= */
 function metricsForState(state){
   const sideM = computeSideMetrics(state?.side);
@@ -642,7 +639,6 @@ function renderBeforeAfter(){
     els.demoDeltaOut.textContent = JSON.stringify(d, null, 2);
   } else els.demoDeltaOut.textContent = "brak";
 }
-
 function setBefore(){
   demoBefore = { side: deepClone(sidePoints), rear: deepClone(rearPoints) };
   els.demoStatePill.textContent = `LIVE (PRZED ustawione)`;
@@ -662,8 +658,17 @@ function clearBeforeAfter(){
 }
 
 /** =========================
- *  Timeline (kroki)
+ *  Timeline
  *  ========================= */
+function downloadJson(filename, obj){
+  const blob = new Blob([JSON.stringify(obj,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
 function addTimelineStep(label){
   const p = profile();
   const sideM = computeSideMetrics(sidePoints);
@@ -721,21 +726,7 @@ function clearTimeline(){
 }
 
 /** =========================
- *  Główna aktualizacja UI (bez kamer)
- *  ========================= */
-function updateAll(){
-  const sideM = computeSideMetrics(sidePoints);
-  const rearM = computeRearMetrics(rearPoints);
-
-  setKpi(sideM, rearM);
-  renderReco(sideM, rearM);
-
-  els.demoJson.textContent = JSON.stringify({ side: sidePoints, rear: rearPoints }, null, 2);
-  renderBeforeAfter();
-}
-
-/** =========================
- *  Session export (jak było)
+ *  Sesja (SNAP)
  *  ========================= */
 let session = { id:null, createdAt:null, snaps:[] };
 function newSession(){
@@ -763,14 +754,27 @@ function renderSession(){
     </div>
   `).join("");
 }
-function downloadJson(filename, obj){
-  const blob = new Blob([JSON.stringify(obj,null,2)], {type:"application/json"});
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+
+/** =========================
+ *  Update UI (NAJWAŻNIEJSZE)
+ *  ========================= */
+function updateAll(){
+  const sideM = computeSideMetrics(sidePoints);
+  const rearM = computeRearMetrics(rearPoints);
+
+  // rysowanie punktów na ekranach
+  drawPointsTo(els.sideCanvas, sidePoints, "BOK (punkty)");
+  drawPointsTo(els.rearCanvas, rearPoints, "TYŁ (punkty)");
+
+  // debug metryk
+  els.sideOut.textContent = JSON.stringify({ points: sidePoints, metrics: sideM }, null, 2);
+  els.rearOut.textContent = JSON.stringify({ points: rearPoints, metrics: rearM }, null, 2);
+
+  setKpi(sideM, rearM);
+  renderReco(sideM, rearM);
+
+  els.demoJson.textContent = JSON.stringify({ side: sidePoints, rear: rearPoints }, null, 2);
+  renderBeforeAfter();
 }
 
 /** =========================
@@ -784,7 +788,7 @@ function toggleClient(){
 }
 
 /** =========================
- *  Wire events
+ *  Events
  *  ========================= */
 els.btnClient.onclick = () => toggleClient();
 
@@ -824,23 +828,18 @@ els.btnAdjReduceRock.onclick   = () => { reduceRocking(); updateAll(); };
 
 // AUTO-PO
 els.btnAutoAfter.onclick = () => {
-  // bazujemy na aktualnym LIVE
   const p = profile();
   const sideM = computeSideMetrics(sidePoints);
   const rearM = computeRearMetrics(rearPoints);
   const actions = autoActionsFromMetrics(p, sideM, rearM);
 
-  // jeżeli nie ma PRZED, ustaw je automatycznie
   if(!demoBefore) setBefore();
 
   applyActions(actions);
   rearHistory = [];
   updateAll();
 
-  // ustaw PO automatycznie
   setAfter();
-
-  // dodaj do timeline
   addTimelineStep(`AUTO-PO (${actions.map(a=>a.type+(a.mm?` ${a.mm}mm`:"")).join(", ") || "brak zmian"})`);
 };
 
@@ -848,49 +847,29 @@ els.btnAutoAfter.onclick = () => {
 els.btnTLAdd.onclick = () => addTimelineStep("Krok (LIVE)");
 els.btnTLAddBefore.onclick = () => {
   if(!demoBefore) return alert("Najpierw ustaw PRZED.");
-  const step = {
+  timeline.push({
     t: new Date().toISOString(),
     label: "PRZED",
     profile: profile(),
     metrics: (()=>{ const m = metricsForState(demoBefore); return {side:fmtM(m.side), rear:fmtM(m.rear)}; })(),
     reco: (()=>{ const m = metricsForState(demoBefore); return recommendations(profile(), m.side, m.rear); })(),
     points: { side: deepClone(demoBefore.side), rear: deepClone(demoBefore.rear) }
-  };
-  timeline.push(step);
+  });
   renderTimeline();
 };
 els.btnTLAddAfter.onclick = () => {
   if(!demoAfter) return alert("Najpierw ustaw PO.");
-  const step = {
+  timeline.push({
     t: new Date().toISOString(),
     label: "PO",
     profile: profile(),
     metrics: (()=>{ const m = metricsForState(demoAfter); return {side:fmtM(m.side), rear:fmtM(m.rear)}; })(),
     reco: (()=>{ const m = metricsForState(demoAfter); return recommendations(profile(), m.side, m.rear); })(),
     points: { side: deepClone(demoAfter.side), rear: deepClone(demoAfter.rear) }
-  };
-  timeline.push(step);
+  });
   renderTimeline();
 };
 els.btnTLClear.onclick = () => clearTimeline();
-
-/** =========================
- *  Mode behavior
- *  ========================= */
-function applyMode(){
-  const m = els.mode.value;
-  const isCam = (m==="cam_side" || m==="cam_rear");
-  const isDemo= (m==="demo");
-  els.cardCam.style.display = isCam ? "" : "none";
-
-  // W DEMO i HUB pokazujemy UI analityczne (w client mode i tak się ukryje)
-  document.getElementById("cardSide").style.display = (isDemo || m==="hub") ? "" : "none";
-  document.getElementById("cardRear").style.display = (isDemo || m==="hub") ? "" : "none";
-  document.getElementById("cardDemo").style.display = isDemo ? "" : "none";
-
-  if(isDemo) updateAll();
-}
-els.mode.onchange = applyMode;
 
 /** =========================
  *  INIT
@@ -899,7 +878,6 @@ els.mode.onchange = applyMode;
   newSession();
   demoLoadScenario("ok");
   clearBeforeAfter();
-  applyMode();
   renderTimeline();
   updateAll();
 })();
