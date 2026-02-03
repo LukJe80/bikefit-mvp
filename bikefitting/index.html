@@ -23,7 +23,14 @@
   #reco .warn{border-color:#6a5a2a}
   #reco .ok{border-color:#2a6a3a}
   small{opacity:.8}
-  .hint{opacity:.9; font-size:12px}
+  .muted{opacity:.75}
+  .kpi{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0}
+  .kpi .pill{border-color:#2a2a2f}
+  .sessionBar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .sessionList{display:grid;grid-template-columns:1fr;gap:10px;margin-top:10px}
+  .snap{border:1px solid #2a2a2f;border-radius:12px;background:#101014;padding:10px}
+  .snapHeader{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .tag{padding:4px 8px;border-radius:999px;border:1px solid #2a2a2f;background:#0f0f11;font-size:12px}
 </style>
 </head>
 <body>
@@ -61,12 +68,10 @@
     <small>Tip: przekrok = od kroku do ziemi (książka + ściana).</small>
   </div>
 
-  <div class="row hint">
-    <span class="pill">Linki szybkie:</span>
-    <span>HUB: <code>?mode=hub</code></span>
-    <span>CAM BOK: <code>?mode=cam_side</code></span>
-    <span>CAM TYŁ: <code>?mode=cam_rear</code></span>
-    <span>DEMO: <code>?mode=demo</code></span>
+  <div class="kpi">
+    <span class="pill" id="kpiKnee">Kolano: -</span>
+    <span class="pill" id="kpiElbow">Łokieć: -</span>
+    <span class="pill" id="kpiRock">Rocking: -</span>
   </div>
 </header>
 
@@ -74,7 +79,6 @@
   <section class="card" id="cardCam">
     <h2 id="camTitle">Kamera</h2>
     <div class="row">
-      <button id="btnStartCam">Start kamery</button>
       <button id="btnSwitchCam">Przełącz kamerę</button>
       <span class="pill" id="rolePill">ROLE: -</span>
     </div>
@@ -98,8 +102,23 @@
   <section class="card full">
     <h2>Rekomendacje</h2>
     <div id="reco"></div>
-    <small>
-      Uwaga: v1 to rekomendacje krokowe (np. 3–5 mm, 5–10 mm, 10 mm) + re-test.
+    <small class="muted">
+      Uwaga: v1.1 to rekomendacje krokowe (3–5 mm, 5–10 mm, 10–15 mm) + re-test.
+    </small>
+  </section>
+
+  <section class="card full">
+    <h2>Sesja</h2>
+    <div class="sessionBar">
+      <button id="btnNewSession">Nowa sesja</button>
+      <button id="btnSnap">Zapisz pomiar (SNAP)</button>
+      <button id="btnExport">Eksport JSON</button>
+      <span class="pill" id="sessionInfo">SNAP: 0</span>
+      <span class="pill" id="sessionId">ID: -</span>
+    </div>
+    <div id="sessionList" class="sessionList"></div>
+    <small class="muted">
+      Eksport zapisuje snapshoty metryk + rekomendacje. W przyszłości dołożymy PDF.
     </small>
   </section>
 
@@ -114,16 +133,6 @@
 </main>
 
 <script>
-/** =========================
- *  Parametry URL (auto-tryb)
- *  ========================= */
-function getModeFromUrl(){
-  const m = new URLSearchParams(location.search).get("mode");
-  if(!m) return null;
-  const allowed = ["hub","cam_side","cam_rear","demo"];
-  return allowed.includes(m) ? m : null;
-}
-
 /** =========================
  *  HSV + markery (do dopasowania pod Twoje naklejki)
  *  ========================= */
@@ -189,70 +198,112 @@ function drawDot(ctx,p,label){
 }
 
 /** =========================
- *  Rekomendacje (v1 – heurystyki)
+ *  Reco v1.1 (krokowo + mm)
  *  ========================= */
 function makeTargets(style){
+  // angle3 daje kąt wewnętrzny stawu (większy = bardziej wyprostowane)
+  // Progi MVP – będziemy kalibrować testami.
   return style==="road"
     ? { kneeBDP: [145, 160], elbow: [150, 175], rockingMax: 0.035 }
     : { kneeBDP: [140, 158], elbow: [155, 178], rockingMax: 0.045 };
+}
+function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
+function stepMmFromDelta(deltaDeg){
+  // bardzo proste mapowanie: większe odchylenie => większy krok w mm
+  const ad = Math.abs(deltaDeg);
+  if(ad < 2) return 0;
+  if(ad < 4) return 3;
+  if(ad < 7) return 5;
+  if(ad < 10) return 10;
+  return 15;
+}
+function saddleStarterFromInseam(inseam_cm){
+  // LeMond: 0.883 * inseam (cm) -> wysokość siodła (środek suportu do szczytu siodła) w cm
+  if(!inseam_cm || inseam_cm<=0) return null;
+  return 0.883 * inseam_cm;
 }
 
 function recommendations(profile, sideMetrics, rearMetrics){
   const t = makeTargets(profile.style);
   const out = [];
 
+  const inseam = profile.inseam_cm || 0;
+  const starter = saddleStarterFromInseam(inseam);
+
+  // 0) Profil
+  if(profile.height_cm || profile.inseam_cm){
+    out.push({lvl:"ok", title:"Profil zapisany",
+      why:`Styl: ${profile.style.toUpperCase()}, wzrost: ${profile.height_cm||"-"} cm, przekrok: ${profile.inseam_cm||"-"} cm.`,
+      do: starter ? `Punkt startowy (orientacyjnie): wysokość siodła ~ ${starter.toFixed(1)} cm (metoda 0.883). To tylko baza do dalszych testów.` :
+                    `Jeśli podasz przekrok, podpowiem orientacyjną wysokość startową siodła.`});
+  }
+
+  // 1) Siodło: kolano + rocking
   if(Number.isFinite(sideMetrics.knee)){
-    if(sideMetrics.knee > t.kneeBDP[1] && rearMetrics.rocking > t.rockingMax){
+    const knee = sideMetrics.knee;
+    const deltaHigh = knee - t.kneeBDP[1]; // dodatni = za prosto
+    const deltaLow  = t.kneeBDP[0] - knee; // dodatni = za mocno ugięte
+    const mmHigh = stepMmFromDelta(deltaHigh);
+    const mmLow  = stepMmFromDelta(deltaLow);
+
+    if(knee > t.kneeBDP[1] && Number.isFinite(rearMetrics.rocking) && rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"bad", title:"Siodło prawdopodobnie za wysoko",
-        why:`Kolano w BDP ~ ${sideMetrics.knee.toFixed(1)}° (za prosto) + rocking ${rearMetrics.rocking.toFixed(3)} (wysoki).`,
-        do:`Obniż siodło o 3–5 mm i zrób re-test (10–20 obrotów).`});
-    } else if(sideMetrics.knee > t.kneeBDP[1]){
+        why:`Kolano w BDP ~ ${knee.toFixed(1)}° (powyżej ${t.kneeBDP[1]}°) + rocking ${rearMetrics.rocking.toFixed(3)} (wysoki).`,
+        do:`Obniż siodło o ${mmHigh||5} mm i zrób re-test (10–20 obrotów). Jeśli dalej buja, kolejne -${mmHigh||5} mm.`});
+    } else if(knee > t.kneeBDP[1]){
       out.push({lvl:"warn", title:"Możliwe: siodło za wysoko",
-        why:`Kolano w BDP ~ ${sideMetrics.knee.toFixed(1)}° (powyżej zakresu).`,
-        do:`Spróbuj obniżyć 3 mm i sprawdź rocking / komfort.`});
-    } else if(sideMetrics.knee < t.kneeBDP[0]){
+        why:`Kolano w BDP ~ ${knee.toFixed(1)}° (cel: ${t.kneeBDP[0]}–${t.kneeBDP[1]}°).`,
+        do:`Test: obniż siodło o ${mmHigh||3} mm, potem sprawdź komfort i rocking.`});
+    } else if(knee < t.kneeBDP[0]){
       out.push({lvl:"warn", title:"Możliwe: siodło za nisko",
-        why:`Kolano w BDP ~ ${sideMetrics.knee.toFixed(1)}° (mocno ugięte).`,
-        do:`Podnieś siodło o 3–5 mm i powtórz pomiar.`});
+        why:`Kolano w BDP ~ ${knee.toFixed(1)}° (poniżej ${t.kneeBDP[0]}°).`,
+        do:`Test: podnieś siodło o ${mmLow||3} mm i powtórz pomiar.`});
     } else {
       out.push({lvl:"ok", title:"Wysokość siodła wygląda OK (wg kolana)",
-        why:`Kolano w BDP ~ ${sideMetrics.knee.toFixed(1)}° w zakresie.`,
+        why:`Kolano w BDP ~ ${knee.toFixed(1)}° w zakresie ${t.kneeBDP[0]}–${t.kneeBDP[1]}°.`,
         do:`Dalej oceniamy przód (reach/drop) i stabilność z tyłu.`});
     }
   } else {
-    out.push({lvl:"warn", title:"Brak metryki kolana (BOK)", why:"Nie wykryto hip/knee/ankle.", do:"Sprawdź markery i światło."});
+    out.push({lvl:"warn", title:"Brak metryki kolana (BOK)",
+      why:"Nie wykryto hip/knee/ankle.", do:"Sprawdź markery i światło."});
   }
 
+  // 2) Reach / mostek: łokieć
   if(Number.isFinite(sideMetrics.elbow)){
-    if(sideMetrics.elbow > t.elbow[1]){
+    const e = sideMetrics.elbow;
+    if(e > t.elbow[1]){
+      const d = e - t.elbow[1];
       out.push({lvl:"warn", title:"Za proste ręce / możliwie za duży reach",
-        why:`Kąt łokcia ~ ${sideMetrics.elbow.toFixed(1)}° (prawie prosta ręka).`,
-        do:`Test: krótszy mostek o 10 mm lub wyżej kokpit (5–10 mm).`});
-    } else if(sideMetrics.elbow < t.elbow[0]){
+        why:`Kąt łokcia ~ ${e.toFixed(1)}° (powyżej ${t.elbow[1]}°).`,
+        do:`Test A: krótszy mostek o 10 mm. Test B: podnieś kokpit 5–10 mm. Wybierz 1 zmianę i re-test.`});
+    } else if(e < t.elbow[0]){
       out.push({lvl:"warn", title:"Bardzo ugięte łokcie / pozycja mocno “zebrana”",
-        why:`Kąt łokcia ~ ${sideMetrics.elbow.toFixed(1)}° (mocno ugięte).`,
-        do:`Sprawdź czy to zamierzone (aero) – jeśli nie: dłuższy mostek lub inaczej ustaw chwyt.`});
+        why:`Kąt łokcia ~ ${e.toFixed(1)}° (poniżej ${t.elbow[0]}°).`,
+        do:`Jeśli to nie aero: dłuższy mostek (+10 mm) lub niżej uchwyty/zmiana chwytu. Re-test.`});
     } else {
-      out.push({lvl:"ok", title:"Łokieć wygląda OK", why:`Kąt łokcia ~ ${sideMetrics.elbow.toFixed(1)}° w zakresie.`, do:"OK."});
+      out.push({lvl:"ok", title:"Łokieć wygląda OK",
+        why:`Kąt łokcia ~ ${e.toFixed(1)}° w zakresie ${t.elbow[0]}–${t.elbow[1]}°.`,
+        do:"OK."});
     }
   }
 
+  // 3) Stabilność tył
   if(Number.isFinite(rearMetrics.rocking)){
     if(rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"warn", title:"Rocking miednicy podwyższony",
-        why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)} (powyżej progu).`,
+        why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)} (powyżej ${t.rockingMax}).`,
         do:`Najczęściej: minimalnie za wysoko siodło lub zbyt agresywny przód. Testuj jedną zmianę naraz.`});
     } else {
-      out.push({lvl:"ok", title:"Stabilność miednicy OK", why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)}.`, do:"OK."});
+      out.push({lvl:"ok", title:"Stabilność miednicy OK",
+        why:`Rocking ~ ${rearMetrics.rocking.toFixed(3)} (<= ${t.rockingMax}).`,
+        do:"OK."});
     }
   }
 
-  if(profile.inseam_cm){
-    const inseam = profile.inseam_cm;
-    out.push({lvl:"ok", title:"Profil antropometryczny zapisany",
-      why:`Wzrost ${profile.height_cm} cm, przekrok ${inseam} cm, styl ${profile.style.toUpperCase()}.`,
-      do:`Te dane wykorzystamy w kolejnej wersji do dokładniejszego skalowania zaleceń (mm) i presetów.`});
-  }
+  // 4) Setback / sztyca (heurystyka v1 – prosta)
+  out.push({lvl:"ok", title:"Setback / sztyca (v1 – heurystyka)",
+    why:"W tej wersji setback podpowiadamy dopiero po dodaniu markera kolana względem osi pedału (KOPS) lub po modelu 3D.",
+    do:"W kolejnej wersji dołożymy KOPS i wtedy: setback / sztyca z offsetem będą bardziej precyzyjne."});
 
   return out;
 }
@@ -275,7 +326,6 @@ const els = {
   cardCam: document.getElementById("cardCam"),
   camTitle: document.getElementById("camTitle"),
   rolePill: document.getElementById("rolePill"),
-  btnStartCam: document.getElementById("btnStartCam"),
   btnSwitchCam: document.getElementById("btnSwitchCam"),
   v: document.getElementById("v"),
   c: document.getElementById("c"),
@@ -290,7 +340,24 @@ const els = {
   btnDemoGood: document.getElementById("btnDemoGood"),
   btnDemoBadSaddle: document.getElementById("btnDemoBadSaddle"),
   btnDemoBadReach: document.getElementById("btnDemoBadReach"),
+  kpiKnee: document.getElementById("kpiKnee"),
+  kpiElbow: document.getElementById("kpiElbow"),
+  kpiRock: document.getElementById("kpiRock"),
+  btnNewSession: document.getElementById("btnNewSession"),
+  btnSnap: document.getElementById("btnSnap"),
+  btnExport: document.getElementById("btnExport"),
+  sessionInfo: document.getElementById("sessionInfo"),
+  sessionId: document.getElementById("sessionId"),
+  sessionList: document.getElementById("sessionList"),
 };
+
+els.wsUrl.value = `ws://${location.hostname || "127.0.0.1"}:8181`;
+
+let ws = null;
+let running = false;
+
+let sidePoints = null;
+let rearPoints = null;
 
 function setStatus(text, ok){
   els.status.textContent = text;
@@ -317,6 +384,7 @@ function renderReco(sideMetrics, rearMetrics){
       <div>${it.do}</div>
     </div>
   `).join("");
+  return items;
 }
 
 function computeSideMetrics(points){
@@ -375,9 +443,78 @@ function drawPointsTo(canvas, points, title){
   }
 }
 
-let sidePoints = null;
-let rearPoints = null;
+function setKpi(sideM, rearM){
+  els.kpiKnee.textContent = `Kolano: ${Number.isFinite(sideM.knee) ? sideM.knee.toFixed(1)+"°" : "-"}`;
+  els.kpiElbow.textContent = `Łokieć: ${Number.isFinite(sideM.elbow) ? sideM.elbow.toFixed(1)+"°" : "-"}`;
+  els.kpiRock.textContent = `Rocking: ${Number.isFinite(rearM.rocking) ? rearM.rocking.toFixed(3) : "-"}`;
+}
 
+/** =========== Sesja =========== */
+let session = {
+  id: null,
+  createdAt: null,
+  snaps: []
+};
+function newSession(){
+  session = {
+    id: `S-${Math.random().toString(16).slice(2,8)}-${Date.now().toString(16).slice(-6)}`.toUpperCase(),
+    createdAt: new Date().toISOString(),
+    snaps: []
+  };
+  renderSession();
+}
+function renderSession(){
+  els.sessionInfo.textContent = `SNAP: ${session.snaps.length}`;
+  els.sessionId.textContent = `ID: ${session.id || "-"}`;
+  els.sessionList.innerHTML = session.snaps.map((s,idx)=>`
+    <div class="snap">
+      <div class="snapHeader">
+        <div><b>SNAP #${idx+1}</b> <span class="tag">${new Date(s.t).toLocaleString()}</span></div>
+        <div class="tag">${s.profile.style.toUpperCase()}</div>
+      </div>
+      <div class="muted">Kolano: ${Number.isFinite(s.side.knee)?s.side.knee.toFixed(1)+"°":"-"} |
+        Łokieć: ${Number.isFinite(s.side.elbow)?s.side.elbow.toFixed(1)+"°":"-"} |
+        Rocking: ${Number.isFinite(s.rear.rocking)?s.rear.rocking.toFixed(3):"-"}</div>
+      <details>
+        <summary>Rekomendacje (${s.reco.length})</summary>
+        <div style="margin-top:8px">${s.reco.map(r=>`<div class="item ${r.lvl}"><b>${r.title}</b><div class="muted">${r.why}</div><div>${r.do}</div></div>`).join("")}</div>
+      </details>
+    </div>
+  `).join("");
+}
+function downloadJson(filename, obj){
+  const blob = new Blob([JSON.stringify(obj,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 0);
+}
+els.btnNewSession.onclick = () => newSession();
+els.btnSnap.onclick = () => {
+  const sideM = computeSideMetrics(sidePoints);
+  const rearM = computeRearMetrics(rearPoints);
+  const recoItems = recommendations(profile(), sideM, rearM);
+
+  session.snaps.push({
+    t: new Date().toISOString(),
+    profile: profile(),
+    side: sideM,
+    rear: rearM,
+    points: { side: sidePoints, rear: rearPoints },
+    reco: recoItems
+  });
+  renderSession();
+};
+els.btnExport.onclick = () => {
+  if(!session.id) newSession();
+  downloadJson(`${session.id}.json`, session);
+};
+
+/** =========================
+ *  HUB update
+ *  ========================= */
 function updateHubUI(){
   const sideM = computeSideMetrics(sidePoints);
   const rearM = computeRearMetrics(rearPoints);
@@ -385,23 +522,16 @@ function updateHubUI(){
   drawPointsTo(els.sideCanvas, sidePoints, "BOK (punkty)");
   drawPointsTo(els.rearCanvas, rearPoints, "TYŁ (punkty)");
 
-  els.sideOut.textContent = JSON.stringify({points: sidePoints, metrics: sideM}, null, 2);
-  els.rearOut.textContent = JSON.stringify({points: rearPoints, metrics: rearM}, null, 2);
+  els.sideOut.textContent =
+    JSON.stringify({points: sidePoints, metrics: sideM}, null, 2);
+  els.rearOut.textContent =
+    JSON.stringify({points: rearPoints, metrics: rearM}, null, 2);
 
+  setKpi(sideM, rearM);
   renderReco(sideM, rearM);
 }
 
 /** =========== WebSocket =========== */
-let ws = null;
-let running = false;
-
-function currentRole(){
-  if(els.mode.value==="hub") return "hub";
-  if(els.mode.value==="cam_side") return "side";
-  if(els.mode.value==="cam_rear") return "rear";
-  return "hub";
-}
-
 function connectWS(){
   const url = els.wsUrl.value.trim();
   if(!url) return alert("Podaj WS URL (np. ws://IP:8181)");
@@ -440,34 +570,19 @@ let facing = "environment";
 const ctx = els.c.getContext("2d", { willReadFrequently: true });
 
 async function startCamera(){
-  try{
-    if(!navigator.mediaDevices?.getUserMedia){
-      throw new Error("Brak wsparcia getUserMedia w tej przeglądarce.");
-    }
-    if(stream) stream.getTracks().forEach(t=>t.stop());
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: facing, width:{ideal:1280}, height:{ideal:720} },
+    audio: false
+  });
+  els.v.srcObject = stream;
+}
 
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: facing, width:{ideal:1280}, height:{ideal:720} },
-      audio: false
-    });
-
-    els.v.srcObject = stream;
-    await els.v.play();
-
-    els.camOut.textContent = "Kamera OK ✅\nJeśli nie widzisz obrazu: sprawdź uprawnienia (kłódka w adresie → Kamera: Zezwalaj).";
-    setStatus("CAM READY", true);
-  }catch(e){
-    const name = e?.name ? ` (${e.name})` : "";
-    els.camOut.textContent =
-      "Błąd kamery" + name + ": " + (e?.message || e) + "\n\n" +
-      "Typowe rozwiązania:\n" +
-      "1) Kłódka w pasku adresu → Uprawnienia → Kamera: ZEZWALAJ\n" +
-      "2) Zamknij inne aplikacje używające kamery (Messenger/WhatsApp)\n" +
-      "3) Odśwież stronę i kliknij 'Start kamery'\n" +
-      "4) Spróbuj przełączyć kamerę i znów 'Start kamery'\n";
-    setStatus("CAM ERROR", false);
-    console.error(e);
-  }
+function currentRole(){
+  if(els.mode.value==="hub") return "hub";
+  if(els.mode.value==="cam_side") return "side";
+  if(els.mode.value==="cam_rear") return "rear";
+  return "hub";
 }
 
 function detectPoints(role, img, w, h){
@@ -512,11 +627,10 @@ function camLoop(){
   for(const [k,p] of Object.entries(pts)){
     payload[k] = p ? {x:p.x, y:p.y} : null;
   }
-  els.camOut.textContent =
-    "Kamera działa ✅\n\n" + JSON.stringify(payload, null, 2);
+  els.camOut.textContent = JSON.stringify(payload, null, 2);
 
   if(ws && ws.readyState===1){
-    ws.send(JSON.stringify({type:"points", t: performance.now(), points: payload}));
+    ws.send(JSON.stringify({type:"points", t: performance.now(), role, points: payload}));
   }
 
   requestAnimationFrame(camLoop);
@@ -552,8 +666,8 @@ function applyMode(){
   const isDemo= (m==="demo");
 
   els.cardCam.style.display = isCam ? "" : "none";
-  document.getElementById("cardSide").style.display = (isHub || isDemo) ? "" : "none";
-  document.getElementById("cardRear").style.display = (isHub || isDemo) ? "" : "none";
+  els.cardSide.style.display = isHub || isDemo ? "" : "none";
+  els.cardRear.style.display = isHub || isDemo ? "" : "none";
   els.cardDemo.style.display = isDemo ? "" : "none";
 
   if(isCam){
@@ -561,48 +675,29 @@ function applyMode(){
     els.camTitle.textContent = `Kamera ${m==="cam_side" ? "BOK" : "TYŁ"}`;
   }
 }
-
-// domyślny WS URL (LAN): podmień ręcznie na ws://IP_LAPTOPA:8181
-els.wsUrl.value = `ws://${location.hostname || "127.0.0.1"}:8181`;
+els.mode.onchange = applyMode;
+applyMode();
 
 els.btnConnect.onclick = () => connectWS();
 els.btnStart.onclick = () => { running = true; sendCmd("start"); camLoop(); };
 els.btnStop.onclick = () => { running = false; sendCmd("stop"); };
 
-els.btnStartCam.onclick = () => startCamera();
-
 els.btnSwitchCam.onclick = async () => {
   facing = (facing==="environment") ? "user" : "environment";
-  await startCamera();
+  try{ await startCamera(); }catch(e){ alert("Nie mogę uruchomić kamery: " + e.message); }
 };
 
-els.mode.onchange = async () => {
-  applyMode();
-  const m = els.mode.value;
-  // auto-start kamery dla CAM (ale i tak masz przycisk Start kamery)
-  if(m==="cam_side" || m==="cam_rear"){
-    await startCamera();
+// auto start
+(async () => {
+  if(!session.id) newSession();
+
+  if(els.mode.value.startsWith("cam")){
+    try{ await startCamera(); }catch{}
   }
-};
-
-(function init(){
-  // ustaw tryb z URL ?mode=...
-  const mFromUrl = getModeFromUrl();
-  if(mFromUrl) els.mode.value = mFromUrl;
-
-  applyMode();
-
-  // demo start
   setDemo({
     side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
     rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
   });
-
-  // spróbuj automatycznie odpalić kamerę jeśli weszliśmy od razu w CAM
-  if(els.mode.value==="cam_side" || els.mode.value==="cam_rear"){
-    // Na części telefonów i tak będzie potrzebny klik — dlatego jest btnStartCam.
-    startCamera();
-  }
 })();
 </script>
 </body>
