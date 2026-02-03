@@ -23,6 +23,7 @@
   #reco .warn{border-color:#6a5a2a}
   #reco .ok{border-color:#2a6a3a}
   small{opacity:.8}
+  .hint{opacity:.9; font-size:12px}
 </style>
 </head>
 <body>
@@ -59,12 +60,21 @@
     <label>Przekrok (cm):</label><input id="inseam" type="number" value="82"/>
     <small>Tip: przekrok = od kroku do ziemi (książka + ściana).</small>
   </div>
+
+  <div class="row hint">
+    <span class="pill">Linki szybkie:</span>
+    <span>HUB: <code>?mode=hub</code></span>
+    <span>CAM BOK: <code>?mode=cam_side</code></span>
+    <span>CAM TYŁ: <code>?mode=cam_rear</code></span>
+    <span>DEMO: <code>?mode=demo</code></span>
+  </div>
 </header>
 
 <main class="grid">
   <section class="card" id="cardCam">
     <h2 id="camTitle">Kamera</h2>
     <div class="row">
+      <button id="btnStartCam">Start kamery</button>
       <button id="btnSwitchCam">Przełącz kamerę</button>
       <span class="pill" id="rolePill">ROLE: -</span>
     </div>
@@ -104,6 +114,16 @@
 </main>
 
 <script>
+/** =========================
+ *  Parametry URL (auto-tryb)
+ *  ========================= */
+function getModeFromUrl(){
+  const m = new URLSearchParams(location.search).get("mode");
+  if(!m) return null;
+  const allowed = ["hub","cam_side","cam_rear","demo"];
+  return allowed.includes(m) ? m : null;
+}
+
 /** =========================
  *  HSV + markery (do dopasowania pod Twoje naklejki)
  *  ========================= */
@@ -172,8 +192,6 @@ function drawDot(ctx,p,label){
  *  Rekomendacje (v1 – heurystyki)
  *  ========================= */
 function makeTargets(style){
-  // progi mocno uproszczone na MVP (ustawimy dokładniej po testach)
-  // angle3 daje "kąt w stawie" (wewnętrzny) – im większy, tym bardziej wyprostowane
   return style==="road"
     ? { kneeBDP: [145, 160], elbow: [150, 175], rockingMax: 0.035 }
     : { kneeBDP: [140, 158], elbow: [155, 178], rockingMax: 0.045 };
@@ -183,7 +201,6 @@ function recommendations(profile, sideMetrics, rearMetrics){
   const t = makeTargets(profile.style);
   const out = [];
 
-  // 1) Siodło: kolano + rocking
   if(Number.isFinite(sideMetrics.knee)){
     if(sideMetrics.knee > t.kneeBDP[1] && rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"bad", title:"Siodło prawdopodobnie za wysoko",
@@ -206,7 +223,6 @@ function recommendations(profile, sideMetrics, rearMetrics){
     out.push({lvl:"warn", title:"Brak metryki kolana (BOK)", why:"Nie wykryto hip/knee/ankle.", do:"Sprawdź markery i światło."});
   }
 
-  // 2) Reach / mostek: łokieć
   if(Number.isFinite(sideMetrics.elbow)){
     if(sideMetrics.elbow > t.elbow[1]){
       out.push({lvl:"warn", title:"Za proste ręce / możliwie za duży reach",
@@ -215,13 +231,12 @@ function recommendations(profile, sideMetrics, rearMetrics){
     } else if(sideMetrics.elbow < t.elbow[0]){
       out.push({lvl:"warn", title:"Bardzo ugięte łokcie / pozycja mocno “zebrana”",
         why:`Kąt łokcia ~ ${sideMetrics.elbow.toFixed(1)}° (mocno ugięte).`,
-        do:`Sprawdź czy to zamierzone (aero) – jeśli nie: dłuższy mostek lub niżej łokcie/ustawienie chwytu.`});
+        do:`Sprawdź czy to zamierzone (aero) – jeśli nie: dłuższy mostek lub inaczej ustaw chwyt.`});
     } else {
       out.push({lvl:"ok", title:"Łokieć wygląda OK", why:`Kąt łokcia ~ ${sideMetrics.elbow.toFixed(1)}° w zakresie.`, do:"OK."});
     }
   }
 
-  // 3) Stabilność tył
   if(Number.isFinite(rearMetrics.rocking)){
     if(rearMetrics.rocking > t.rockingMax){
       out.push({lvl:"warn", title:"Rocking miednicy podwyższony",
@@ -232,10 +247,8 @@ function recommendations(profile, sideMetrics, rearMetrics){
     }
   }
 
-  // 4) Przekrok: sugestia startowa (tylko informacyjnie)
   if(profile.inseam_cm){
     const inseam = profile.inseam_cm;
-    // Uproszczony “starter”: pokazujemy tylko, że przekrok jest w profilu.
     out.push({lvl:"ok", title:"Profil antropometryczny zapisany",
       why:`Wzrost ${profile.height_cm} cm, przekrok ${inseam} cm, styl ${profile.style.toUpperCase()}.`,
       do:`Te dane wykorzystamy w kolejnej wersji do dokładniejszego skalowania zaleceń (mm) i presetów.`});
@@ -262,6 +275,7 @@ const els = {
   cardCam: document.getElementById("cardCam"),
   camTitle: document.getElementById("camTitle"),
   rolePill: document.getElementById("rolePill"),
+  btnStartCam: document.getElementById("btnStartCam"),
   btnSwitchCam: document.getElementById("btnSwitchCam"),
   v: document.getElementById("v"),
   c: document.getElementById("c"),
@@ -277,14 +291,6 @@ const els = {
   btnDemoBadSaddle: document.getElementById("btnDemoBadSaddle"),
   btnDemoBadReach: document.getElementById("btnDemoBadReach"),
 };
-
-els.wsUrl.value = `ws://${location.hostname || "127.0.0.1"}:8181`;
-
-let ws = null;
-let running = false;
-
-let sidePoints = null;
-let rearPoints = null;
 
 function setStatus(text, ok){
   els.status.textContent = text;
@@ -314,7 +320,6 @@ function renderReco(sideMetrics, rearMetrics){
 }
 
 function computeSideMetrics(points){
-  // points: {hip,knee,ankle,shoulder,elbow,wrist} or subset
   const m = { knee: NaN, hip: NaN, elbow: NaN };
   if(points?.hip && points?.knee && points?.ankle) m.knee = angle3(points.hip, points.knee, points.ankle);
   if(points?.shoulder && points?.hip && points?.knee) m.hip = angle3(points.shoulder, points.hip, points.knee);
@@ -324,27 +329,25 @@ function computeSideMetrics(points){
 
 let rearHistory = [];
 function computeRearMetrics(points){
-  // points: l_pelvis, r_pelvis, l_shoulder, r_shoulder
-  // rocking: różnica wysokości miednicy (L-R) znormalizowana przez wysokość "tułowia" (barki->miednica)
   const m = { rocking: NaN, pelvisTilt: NaN, shoulderTilt: NaN };
 
   if(points?.l_pelvis && points?.r_pelvis){
-    m.pelvisTilt = points.l_pelvis.y - points.r_pelvis.y; // px
+    m.pelvisTilt = points.l_pelvis.y - points.r_pelvis.y;
   }
   if(points?.l_shoulder && points?.r_shoulder){
-    m.shoulderTilt = points.l_shoulder.y - points.r_shoulder.y; // px
+    m.shoulderTilt = points.l_shoulder.y - points.r_shoulder.y;
   }
 
   if(points?.l_pelvis && points?.r_pelvis && points?.l_shoulder && points?.r_shoulder){
     const pelvisMid = { x:(points.l_pelvis.x+points.r_pelvis.x)/2, y:(points.l_pelvis.y+points.r_pelvis.y)/2 };
     const shoulderMid= { x:(points.l_shoulder.x+points.r_shoulder.x)/2, y:(points.l_shoulder.y+points.r_shoulder.y)/2 };
-    const torsoH = Math.max(50, Math.abs(pelvisMid.y - shoulderMid.y)); // px, zabezpieczenie
-    const tiltNorm = Math.abs(m.pelvisTilt) / torsoH; // 0.00–0.10 typowo
+    const torsoH = Math.max(50, Math.abs(pelvisMid.y - shoulderMid.y));
+    const tiltNorm = Math.abs(m.pelvisTilt) / torsoH;
     rearHistory.push(tiltNorm);
-    if(rearHistory.length>120) rearHistory.shift(); // ~4 sek przy 30fps
+    if(rearHistory.length>120) rearHistory.shift();
     const max = Math.max(...rearHistory);
     const min = Math.min(...rearHistory);
-    m.rocking = (max - min); // amplituda w oknie czasowym
+    m.rocking = (max - min);
   }
   return m;
 }
@@ -363,18 +366,17 @@ function drawPointsTo(canvas, points, title){
     ctx.fillText("brak punktów", 10, 45);
     return;
   }
-  // skaluje punkty z “oryginalnego” wideo do canvas: tu nie znamy rozmiaru,
-  // więc rysujemy tylko relacyjnie: zakładamy, że x,y są już w skali 0..w,0..h
-  // W MVP wystarczy tekst + kropki w przybliżeniu.
   for(const [k,p] of Object.entries(points)){
     if(!p) continue;
-    // Mapujemy proporcjonalnie: tu zakładamy max 1280x720 -> 640x360
     const x = p.x * 0.5;
     const y = p.y * 0.5;
     ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2); ctx.stroke();
     ctx.fillText(k, x+8, y);
   }
 }
+
+let sidePoints = null;
+let rearPoints = null;
 
 function updateHubUI(){
   const sideM = computeSideMetrics(sidePoints);
@@ -383,15 +385,23 @@ function updateHubUI(){
   drawPointsTo(els.sideCanvas, sidePoints, "BOK (punkty)");
   drawPointsTo(els.rearCanvas, rearPoints, "TYŁ (punkty)");
 
-  els.sideOut.textContent =
-    JSON.stringify({points: sidePoints, metrics: sideM}, null, 2);
-  els.rearOut.textContent =
-    JSON.stringify({points: rearPoints, metrics: rearM}, null, 2);
+  els.sideOut.textContent = JSON.stringify({points: sidePoints, metrics: sideM}, null, 2);
+  els.rearOut.textContent = JSON.stringify({points: rearPoints, metrics: rearM}, null, 2);
 
   renderReco(sideM, rearM);
 }
 
 /** =========== WebSocket =========== */
+let ws = null;
+let running = false;
+
+function currentRole(){
+  if(els.mode.value==="hub") return "hub";
+  if(els.mode.value==="cam_side") return "side";
+  if(els.mode.value==="cam_rear") return "rear";
+  return "hub";
+}
+
 function connectWS(){
   const url = els.wsUrl.value.trim();
   if(!url) return alert("Podaj WS URL (np. ws://IP:8181)");
@@ -430,23 +440,37 @@ let facing = "environment";
 const ctx = els.c.getContext("2d", { willReadFrequently: true });
 
 async function startCamera(){
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode: facing, width:{ideal:1280}, height:{ideal:720} },
-    audio: false
-  });
-  els.v.srcObject = stream;
-}
+  try{
+    if(!navigator.mediaDevices?.getUserMedia){
+      throw new Error("Brak wsparcia getUserMedia w tej przeglądarce.");
+    }
+    if(stream) stream.getTracks().forEach(t=>t.stop());
 
-function currentRole(){
-  if(els.mode.value==="hub") return "hub";
-  if(els.mode.value==="cam_side") return "side";
-  if(els.mode.value==="cam_rear") return "rear";
-  return "hub";
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width:{ideal:1280}, height:{ideal:720} },
+      audio: false
+    });
+
+    els.v.srcObject = stream;
+    await els.v.play();
+
+    els.camOut.textContent = "Kamera OK ✅\nJeśli nie widzisz obrazu: sprawdź uprawnienia (kłódka w adresie → Kamera: Zezwalaj).";
+    setStatus("CAM READY", true);
+  }catch(e){
+    const name = e?.name ? ` (${e.name})` : "";
+    els.camOut.textContent =
+      "Błąd kamery" + name + ": " + (e?.message || e) + "\n\n" +
+      "Typowe rozwiązania:\n" +
+      "1) Kłódka w pasku adresu → Uprawnienia → Kamera: ZEZWALAJ\n" +
+      "2) Zamknij inne aplikacje używające kamery (Messenger/WhatsApp)\n" +
+      "3) Odśwież stronę i kliknij 'Start kamery'\n" +
+      "4) Spróbuj przełączyć kamerę i znów 'Start kamery'\n";
+    setStatus("CAM ERROR", false);
+    console.error(e);
+  }
 }
 
 function detectPoints(role, img, w, h){
-  // DOPASUJ kolory do naklejek:
   if(role==="side"){
     return {
       hip:   findCentroid(img,w,h,HSV.neonGreen),
@@ -457,7 +481,6 @@ function detectPoints(role, img, w, h){
       wrist:    findCentroid(img,w,h,HSV.purple),
     };
   }
-  // rear
   return {
     l_shoulder: findCentroid(img,w,h,HSV.orange),
     r_shoulder: findCentroid(img,w,h,HSV.yellow),
@@ -479,19 +502,18 @@ function camLoop(){
   const img = ctx.getImageData(0,0,w,h);
   const pts = detectPoints(role, img, w, h);
 
-  // overlay
   ctx.lineWidth = 3; ctx.font = "16px system-ui";
   for(const [k,p] of Object.entries(pts)){
     if(!p) continue;
     drawDot(ctx, p, k);
   }
 
-  // wysyłamy tylko x,y
   const payload = {};
   for(const [k,p] of Object.entries(pts)){
     payload[k] = p ? {x:p.x, y:p.y} : null;
   }
-  els.camOut.textContent = JSON.stringify(payload, null, 2);
+  els.camOut.textContent =
+    "Kamera działa ✅\n\n" + JSON.stringify(payload, null, 2);
 
   if(ws && ws.readyState===1){
     ws.send(JSON.stringify({type:"points", t: performance.now(), points: payload}));
@@ -514,11 +536,11 @@ els.btnDemoGood.onclick = () => setDemo({
   rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
 });
 els.btnDemoBadSaddle.onclick = () => setDemo({
-  side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:600,y:520}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} }, // “bardziej prosto”
-  rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:340}, r_pelvis:{x:500,y:390} } // większy tilt -> rocking
+  side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:600,y:520}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
+  rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:340}, r_pelvis:{x:500,y:390} }
 });
 els.btnDemoBadReach.onclick = () => setDemo({
-  side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:230,y:210}, wrist:{x:150,y:220} }, // łokieć “prawie prosty”
+  side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:230,y:210}, wrist:{x:150,y:220} },
   rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
 });
 
@@ -530,8 +552,8 @@ function applyMode(){
   const isDemo= (m==="demo");
 
   els.cardCam.style.display = isCam ? "" : "none";
-  els.cardSide.style.display = isHub || isDemo ? "" : "none";
-  els.cardRear.style.display = isHub || isDemo ? "" : "none";
+  document.getElementById("cardSide").style.display = (isHub || isDemo) ? "" : "none";
+  document.getElementById("cardRear").style.display = (isHub || isDemo) ? "" : "none";
   els.cardDemo.style.display = isDemo ? "" : "none";
 
   if(isCam){
@@ -539,28 +561,48 @@ function applyMode(){
     els.camTitle.textContent = `Kamera ${m==="cam_side" ? "BOK" : "TYŁ"}`;
   }
 }
-els.mode.onchange = applyMode;
-applyMode();
+
+// domyślny WS URL (LAN): podmień ręcznie na ws://IP_LAPTOPA:8181
+els.wsUrl.value = `ws://${location.hostname || "127.0.0.1"}:8181`;
 
 els.btnConnect.onclick = () => connectWS();
 els.btnStart.onclick = () => { running = true; sendCmd("start"); camLoop(); };
 els.btnStop.onclick = () => { running = false; sendCmd("stop"); };
 
+els.btnStartCam.onclick = () => startCamera();
+
 els.btnSwitchCam.onclick = async () => {
   facing = (facing==="environment") ? "user" : "environment";
-  try{ await startCamera(); }catch(e){ alert("Nie mogę uruchomić kamery: " + e.message); }
+  await startCamera();
 };
 
-// auto start kamery w trybie CAM
-(async () => {
-  if(els.mode.value.startsWith("cam")){
-    try{ await startCamera(); }catch{}
+els.mode.onchange = async () => {
+  applyMode();
+  const m = els.mode.value;
+  // auto-start kamery dla CAM (ale i tak masz przycisk Start kamery)
+  if(m==="cam_side" || m==="cam_rear"){
+    await startCamera();
   }
+};
+
+(function init(){
+  // ustaw tryb z URL ?mode=...
+  const mFromUrl = getModeFromUrl();
+  if(mFromUrl) els.mode.value = mFromUrl;
+
+  applyMode();
+
   // demo start
   setDemo({
     side: { hip:{x:400,y:300}, knee:{x:520,y:420}, ankle:{x:560,y:560}, shoulder:{x:320,y:180}, elbow:{x:260,y:240}, wrist:{x:220,y:280} },
     rear: { l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200}, l_pelvis:{x:440,y:360}, r_pelvis:{x:500,y:362} }
   });
+
+  // spróbuj automatycznie odpalić kamerę jeśli weszliśmy od razu w CAM
+  if(els.mode.value==="cam_side" || els.mode.value==="cam_rear"){
+    // Na części telefonów i tak będzie potrzebny klik — dlatego jest btnStartCam.
+    startCamera();
+  }
 })();
 </script>
 </body>
