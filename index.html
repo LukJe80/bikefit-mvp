@@ -3,631 +3,184 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bikefit LIVE – Instruktor (PWA) – 1 kamera (bok)</title>
+  <title>Bikefit LIVE – logowanie</title>
 
-  <!-- MediaPipe (stabilne importy + poprawna składnia "new Pose(...)" ) -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#020617">
 
   <style>
+    /* ✅ MOTYW 1:1 jak w orders.html */
     :root{
-      --bg:#0b0d10;
-      --panel:#0f1318;
-      --panel2:#0c1015;
-      --stroke:#222a33;
-      --stroke2:#1b232c;
-      --txt:#d9e2ec;
-      --muted:#93a4b7;
-      --accent:#ffd34d;
-      --ok:#3ddc97;
-      --bad:#ff6b6b;
-      --chip:#131a22;
+      --accent:#2563eb;
+      --accentHover:#1d4ed8;
+      --bg:#020617;
+      --text:#e5e7eb;
+      --panel: rgba(255,255,255,0.05);
+      --panelBorder: rgba(255,255,255,0.10);
+      --muted: rgba(229,231,235,0.7);
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
+
     body{
       margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background: radial-gradient(1200px 800px at 50% 0%, #121823 0%, var(--bg) 60%, #07090c 100%);
-      color:var(--txt);
-    }
-    .wrap{
-      max-width: 1400px;
-      margin: 14px auto;
-      padding: 0 14px 30px;
-    }
-    .title{
-      font-size: 22px;
-      font-weight: 800;
-      letter-spacing: .2px;
-      margin: 6px 0 12px;
-    }
-
-    .toolbar{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      align-items:center;
-      padding:12px;
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(18,24,35,.75), rgba(10,12,16,.6));
-      border-radius:16px;
-      box-shadow: 0 14px 30px rgba(0,0,0,.35);
-    }
-    .btn{
-      appearance:none;
-      border:1px solid var(--stroke2);
-      background: linear-gradient(180deg, #121a24, #0c1117);
-      color:var(--txt);
-      padding:10px 14px;
-      border-radius:12px;
-      cursor:pointer;
-      font-weight:700;
-      transition:.15s transform, .15s border-color, .15s filter;
-      user-select:none;
-    }
-    .btn:hover{transform: translateY(-1px); border-color:#2e3a48;}
-    .btn:active{transform: translateY(0px); filter:brightness(.95);}
-    .btn.primary{border-color:#314256;}
-    .btn.good{border-color: rgba(61,220,151,.4); }
-    .btn.bad{border-color: rgba(255,107,107,.45); }
-
-    .chip{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 12px;
-      border-radius:999px;
-      background: linear-gradient(180deg, #0e141d, #0a0f15);
-      border:1px solid var(--stroke2);
-      min-height: 42px;
-    }
-    .chip label{color:var(--muted); font-size:13px; font-weight:700;}
-    .chip select, .chip input{
-      background: transparent;
-      border:none;
-      outline:none;
-      color:var(--txt);
-      font-weight:800;
-      width: 120px;
-    }
-    .chip input{width: 78px; text-align:center;}
-
-    .status{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 14px;
-      border-radius:999px;
-      border:1px solid var(--stroke2);
-      background: linear-gradient(180deg, #0e141d, #0a0f15);
-      font-weight:900;
-      min-height:42px;
-    }
-    .dot{width:10px;height:10px;border-radius:50%;}
-    .dot.off{background: var(--bad); box-shadow: 0 0 0 4px rgba(255,107,107,.12);}
-    .dot.on{background: var(--ok); box-shadow: 0 0 0 4px rgba(61,220,151,.12);}
-
-    .tip{
-      color: var(--muted);
-      margin: 10px 2px 14px;
-      font-weight: 650;
-    }
-    .tip b{color:#cfe0ff}
-
-    .grid{
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height:100vh;
       display:grid;
-      grid-template-columns: 1.25fr .75fr;
-      gap:14px;
-      align-items:start;
-    }
-    @media (max-width: 1000px){
-      .grid{grid-template-columns:1fr}
+      place-items:center;
+      padding:18px;
     }
 
     .card{
-      border:1px solid var(--stroke);
-      background: linear-gradient(180deg, rgba(16,20,26,.85), rgba(10,12,16,.72));
-      border-radius:18px;
-      box-shadow: 0 18px 40px rgba(0,0,0,.32);
-      overflow:hidden;
+      width:min(520px,100%);
+      background:var(--panel);
+      border:1px solid var(--panelBorder);
+      border-radius:16px;
+      padding:22px;
+      box-shadow:0 18px 40px rgba(0,0,0,.35);
     }
-    .card .hd{
-      padding:12px 14px;
-      border-bottom:1px solid rgba(255,255,255,.05);
+
+    h1{
+      margin:0 0 6px 0;
+      font-size:20px;
+      color: var(--accent);
+      display:flex;
+      align-items:center;
+      gap:10px;
       font-weight:900;
-      letter-spacing:.2px;
     }
-    .card .bd{padding:14px;}
 
-    /* Podgląd video + canvas */
-    .previewShell{
-      position:relative;
-      width:100%;
-      border-radius:16px;
-      background: #000;
-      border:1px solid rgba(255,255,255,.06);
-      overflow:hidden;
-      aspect-ratio: 16/9;
-    }
-    .previewShell video, .previewShell canvas{
-      position:absolute;
-      inset:0;
-      width:100%;
-      height:100%;
-      object-fit: contain; /* ważne: nie rozciąga */
-      background:#000;
-    }
-    .smallNote{
-      margin-top:10px;
+    .hint{
+      margin:0 0 16px 0;
       color:var(--muted);
-      font-weight:650;
+      font-size:13px;
+      line-height:1.35;
     }
 
-    .instr{
-      border:1px solid rgba(255,211,77,.25);
-      background: linear-gradient(180deg, rgba(255,211,77,.07), rgba(10,12,16,.0));
-      border-radius:16px;
-      padding:14px;
+    label{
+      display:block;
+      margin:10px 0 6px;
+      font-size:12px;
+      letter-spacing:.5px;
+      text-transform:uppercase;
+      color:#93c5fd;
+      font-weight:900;
     }
-    .instr .k{color:var(--muted); font-weight:800; font-size:13px; letter-spacing:.2px;}
-    .instr .v{font-size:24px; font-weight:950; margin-top:6px;}
-    .instr .s{color:var(--muted); margin-top:4px; font-weight:650;}
 
-    .metrics{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:12px;
-      margin-top:12px;
-    }
-    @media (max-width: 520px){
-      .metrics{grid-template-columns:1fr}
-    }
-    .mcard{
-      border:1px solid rgba(255,255,255,.06);
-      border-radius:16px;
-      padding:12px;
-      background: linear-gradient(180deg, rgba(13,18,25,.92), rgba(10,12,16,.75));
-    }
-    .mcard .t{color:var(--muted); font-weight:850;}
-    .mcard .val{font-size:22px; font-weight:950; margin:8px 0 2px;}
-    .mcard .d{color:var(--muted); font-weight:650;}
-
-    .debug{
-      margin-top:12px;
-      border-top:1px solid rgba(255,255,255,.06);
-      padding-top:12px;
-      color:var(--muted);
-      font-weight:700;
-    }
-    .dbgbox{
-      margin-top:8px;
-      padding:10px 12px;
+    input{
+      width:100%;
+      padding:12px 14px;
       border-radius:14px;
-      background: #0a0f15;
-      border:1px solid rgba(255,255,255,.06);
-      color:#cfe0ff;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size: 12px;
-      max-height:160px;
-      overflow:auto;
-      white-space:pre-wrap;
+      border:1px solid rgba(255,255,255,0.10);
+      background:rgba(255,255,255,0.03);
+      color:var(--text);
+      outline:none;
+      font-size:16px;
     }
+
+    .btn{
+      margin-top:12px;
+      width:100%;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,0.10);
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      color:var(--text);
+      font-weight:900;
+      cursor:pointer;
+      transition:.15s ease;
+    }
+
+    .btn:hover{
+      border-color:rgba(37,99,235,0.45);
+      transform:translateY(-1px);
+    }
+
+    .btn.primary{
+      border-color:rgba(37,99,235,0.75);
+      box-shadow:0 0 0 3px rgba(37,99,235,0.18);
+    }
+
+    .msg{
+      margin-top:10px;
+      min-height:18px;
+      color:var(--muted);
+      font-size:13px;
+    }
+
+    .mini{
+      margin-top:12px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.35;
+    }
+
+    code{ color:#bfdbfe; font-weight:900; }
   </style>
 </head>
-
 <body>
-  <div class="wrap">
-    <div class="title">Bikefit LIVE – Instruktor (PWA) · 1 kamera (bok)</div>
 
-    <div class="toolbar">
-      <button class="btn primary" id="btnLogout">Wyloguj</button>
-      <button class="btn good" id="btnStart">Start kamery</button>
-      <button class="btn bad" id="btnStop">Stop</button>
+  <div class="card">
+    <h1>Bikefit LIVE</h1>
+    <p class="hint">Logowanie lokalne (PIN). Po poprawnym PIN przejdziesz do aplikacji.</p>
 
-      <div class="status" id="statusPill">
-        <span class="dot off" id="statusDot"></span>
-        <span>Status: <span id="statusTxt">OFF</span></span>
-      </div>
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" placeholder="••••" autocomplete="current-password" />
 
-      <div class="chip">
-        <label for="selGoal">Cel:</label>
-        <select id="selGoal">
-          <option>Neutral</option>
-          <option>Komfort</option>
-          <option>Aero</option>
-        </select>
-      </div>
+    <button id="loginBtn" class="btn primary">Zaloguj</button>
 
-      <div class="chip">
-        <label for="selDisc">Dyscyplina:</label>
-        <select id="selDisc">
-          <option>Szosа</option>
-          <option>Gravel</option>
-          <option>TT/Tri</option>
-        </select>
-      </div>
+    <div id="msg" class="msg"></div>
 
-      <div class="chip">
-        <label for="inH">Wzrost (cm):</label>
-        <input id="inH" type="number" value="175" />
-      </div>
-
-      <div class="chip">
-        <label for="inI">Przekrok (cm):</label>
-        <input id="inI" type="number" value="82" />
-      </div>
-
-      <div class="chip" style="min-width:240px;">
-        <label for="selMode">Tryb:</label>
-        <select id="selMode" style="width:180px;">
-          <option>LIVE (bez nagrywania)</option>
-          <option>DEMO (punkty testowe)</option>
-        </select>
-      </div>
-    </div>
-
-    <div class="tip">
-      Tip: kamera działa najlepiej na <b>HTTPS</b> (Vercel). Jeśli masz czarny obraz – sprawdź uprawnienia kamery w Chrome (ikona kłódki) i czy żadna inna apka nie używa kamery.
-    </div>
-
-    <div class="grid">
-      <!-- LEWO: Podgląd -->
-      <div class="card">
-        <div class="hd">Podgląd + punkty</div>
-        <div class="bd">
-          <div class="previewShell">
-            <video id="video" playsinline muted></video>
-            <canvas id="canvas"></canvas>
-          </div>
-          <div class="smallNote">
-            Jeśli obraz jest czarny: zamknij Teams / Zoom, sprawdź w Chrome: kłódka → Kamera: Zezwalaj, odśwież.
-          </div>
-
-          <div class="debug">
-            Debug (tu pokaże się realny błąd z przeglądarki):
-            <div class="dbgbox" id="dbg">DBG: gotowe.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- PRAWO: Instruktor + metryki -->
-      <div class="card">
-        <div class="hd">Instruktor</div>
-        <div class="bd">
-          <div class="instr">
-            <div class="k">Wskazówka</div>
-            <div class="v" id="hintMain">Uruchom kamerę</div>
-            <div class="s" id="hintSub">Kliknij „Start kamery”.</div>
-          </div>
-
-          <div class="metrics">
-            <div class="mcard">
-              <div class="t">Kąt kolana (szac.)</div>
-              <div class="val" id="mKnee">—</div>
-              <div class="d">Najważniejsze do wysokości siodła.</div>
-            </div>
-            <div class="mcard">
-              <div class="t">Kąt łokcia (szac.)</div>
-              <div class="val" id="mElbow">—</div>
-              <div class="d">Pomaga ocenić reach / mostek.</div>
-            </div>
-            <div class="mcard">
-              <div class="t">Kąt tułowia (szac.)</div>
-              <div class="val" id="mTorso">—</div>
-              <div class="d">Pomaga ocenić drop / kokpit.</div>
-            </div>
-            <div class="mcard">
-              <div class="t">Stabilność (szac.)</div>
-              <div class="val" id="mStab">—</div>
-              <div class="d">Wykrywa „szarpanie” / brak pewności punktów.</div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="mini">
+      Zmiana PIN: w tym pliku ustaw <code>PIN_PLAIN</code>.
     </div>
   </div>
 
 <script>
-(() => {
-  // ---------- Helpers ----------
-  const $ = (id) => document.getElementById(id);
+/** ===========================
+ *  PROSTE LOGOWANIE (offline)
+ *  ===========================
+ *  - PIN_PLAIN: ustaw swój PIN
+ *  - zapis sesji na 24h w localStorage
+ */
+const AUTH_KEY = "bikefit_auth";
+const PIN_PLAIN = "1234"; // <-- ZMIEŃ NA SWÓJ PIN
 
-  const dbgEl = $("dbg");
-  function dbg(msg){
-    const time = new Date().toLocaleTimeString();
-    dbgEl.textContent = `[${time}] ${msg}\n` + dbgEl.textContent;
-  }
+function now(){ return Date.now(); }
 
-  function setStatus(on){
-    $("statusTxt").textContent = on ? "ON" : "OFF";
-    $("statusDot").className = "dot " + (on ? "on" : "off");
-  }
+function isAuthed(){
+  try{
+    const raw = localStorage.getItem(AUTH_KEY);
+    if(!raw) return false;
+    const obj = JSON.parse(raw);
+    return obj && obj.exp && obj.exp > now();
+  }catch(e){ return false; }
+}
 
-  function setHint(main, sub){
-    $("hintMain").textContent = main;
-    $("hintSub").textContent = sub || "";
-  }
+function goApp(){
+  location.href = "/bikefitting/";
+}
 
-  // ---------- DOM ----------
-  const video = $("video");
-  const canvas = $("canvas");
-  const ctx = canvas.getContext("2d");
+if(isAuthed()){
+  goApp();
+}
 
-  // ---------- State ----------
-  let mpPose = null;
-  let mpCamera = null;
-  let running = false;
+document.getElementById("loginBtn").addEventListener("click", () => {
+  const pin = (document.getElementById("pin").value || "").trim();
+  const msg = document.getElementById("msg");
 
-  // ---------- Angle math ----------
-  function angleABC(ax, ay, bx, by, cx, cy){
-    // angle at B between BA and BC
-    const abx = ax - bx, aby = ay - by;
-    const cbx = cx - bx, cby = cy - by;
-    const dot = abx*cbx + aby*cby;
-    const mag1 = Math.hypot(abx, aby);
-    const mag2 = Math.hypot(cbx, cby);
-    if(mag1 === 0 || mag2 === 0) return null;
-    const cos = Math.max(-1, Math.min(1, dot / (mag1*mag2)));
-    return Math.acos(cos) * 180/Math.PI;
-  }
+  if(!pin){ msg.textContent = "Wpisz PIN."; return; }
+  if(pin !== PIN_PLAIN){ msg.textContent = "Zły PIN."; return; }
 
-  // ---------- Canvas sizing ----------
-  function syncCanvasToVideo(){
-    const w = video.videoWidth || 1280;
-    const h = video.videoHeight || 720;
-    if(canvas.width !== w || canvas.height !== h){
-      canvas.width = w;
-      canvas.height = h;
-      dbg(`Canvas ustawiony: ${w}x${h}`);
-    }
-  }
+  localStorage.setItem(AUTH_KEY, JSON.stringify({ exp: now() + 24*60*60*1000 }));
+  goApp();
+});
 
-  // ---------- Drawing ----------
-  function drawPoint(x, y, label){
-    ctx.beginPath();
-    ctx.arc(x, y, 6, 0, Math.PI*2);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(255,255,255,0.9)";
-    ctx.stroke();
-
-    ctx.font = "16px system-ui, sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
-    ctx.fillText(label, x + 10, y + 5);
-  }
-
-  function onPoseResults(results){
-    // Draw video frame
-    syncCanvasToVideo();
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    ctx.drawImage(results.image, 0, 0, canvas.width, canvas.height);
-
-    // If no landmarks:
-    if(!results.poseLandmarks || results.poseLandmarks.length === 0){
-      $("mKnee").textContent = "—";
-      $("mElbow").textContent = "—";
-      $("mTorso").textContent = "—";
-      $("mStab").textContent = "—";
-      setHint("Nie widzę sylwetki", "Ustaw kamerę bokiem: biodro–kolano–kostka w kadrze.");
-      return;
-    }
-
-    // pick RIGHT side (bok) – zwykle bardziej czytelne, ale można zmienić
-    const L = results.poseLandmarks;
-    const idx = {
-      rShoulder: 12,
-      rElbow: 14,
-      rWrist: 16,
-      rHip: 24,
-      rKnee: 26,
-      rAnkle: 28,
-      lShoulder: 11,
-      lHip: 23
-    };
-
-    function pt(i){
-      const p = L[i];
-      return {x: p.x * canvas.width, y: p.y * canvas.height, v: p.visibility ?? 1};
-    }
-
-    const sh = pt(idx.rShoulder);
-    const el = pt(idx.rElbow);
-    const wr = pt(idx.rWrist);
-    const hip = pt(idx.rHip);
-    const knee = pt(idx.rKnee);
-    const ankle = pt(idx.rAnkle);
-    const lsh = pt(idx.lShoulder);
-    const lhip = pt(idx.lHip);
-
-    // basic visibility gate
-    const minV = 0.45;
-    const ok =
-      sh.v>minV && el.v>minV && wr.v>minV &&
-      hip.v>minV && knee.v>minV && ankle.v>minV;
-
-    if(!ok){
-      setHint("Punkty niepewne", "Popraw światło / kadr (biodro–kolano–kostka).");
-    }else{
-      setHint("OK – wykrywam sylwetkę", "Kręć chwilę równym tempem.");
-    }
-
-    // Draw points
-    drawPoint(sh.x, sh.y, "shoulder");
-    drawPoint(el.x, el.y, "elbow");
-    drawPoint(wr.x, wr.y, "wrist");
-    drawPoint(hip.x, hip.y, "hip");
-    drawPoint(knee.x, knee.y, "knee");
-    drawPoint(ankle.x, ankle.y, "ankle");
-
-    // Angles
-    const kneeAng = angleABC(hip.x, hip.y, knee.x, knee.y, ankle.x, ankle.y);
-    const elbowAng = angleABC(sh.x, sh.y, el.x, el.y, wr.x, wr.y);
-    const torsoAng = angleABC(sh.x, sh.y, hip.x, hip.y, knee.x, knee.y); // szac.
-
-    $("mKnee").textContent  = kneeAng ? `${kneeAng.toFixed(0)}°` : "—";
-    $("mElbow").textContent = elbowAng ? `${elbowAng.toFixed(0)}°` : "—";
-    $("mTorso").textContent = torsoAng ? `${torsoAng.toFixed(0)}°` : "—";
-
-    // Stability (prosta heurystyka: różnica bark–biodro L/R)
-    const sway = Math.hypot((sh.x - lsh.x), (hip.y - lhip.y)) / Math.max(1, canvas.width);
-    const stab = Math.max(0, 100 - Math.min(100, sway*300));
-    $("mStab").textContent = `${stab.toFixed(0)}%`;
-
-    // Instructor hint (prosty przykład)
-    if(kneeAng){
-      if(kneeAng < 135) setHint("Za mały kąt kolana", "Siodło może być za nisko – podnieś minimalnie.");
-      else if(kneeAng > 160) setHint("Za duży kąt kolana", "Siodło może być za wysoko – obniż minimalnie.");
-      else setHint("Kąt kolana wygląda OK", "Dalej sprawdzimy reach i stabilność.");
-    }
-  }
-
-  // ---------- Start / Stop camera ----------
-  async function start(){
-    if(running) return;
-
-    try{
-      dbg("Start: inicjalizacja MediaPipe Pose...");
-
-      // Tworzymy obiekt Pose (POPRAWNIE!)
-      mpPose = new Pose({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-      });
-
-      mpPose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
-
-      mpPose.onResults(onPoseResults);
-
-      dbg("Proszenie o dostęp do kamery...");
-
-      // Wymuszamy rozsądny rozmiar + 16:9 (żeby nie było „bardzo szeroko”)
-      const constraints = {
-        audio: false,
-        video: {
-          width: { ideal: 1280 },
-          height:{ ideal: 720 },
-          frameRate: { ideal: 30, max: 30 }
-        }
-      };
-
-      // Ustawiamy video stream ręcznie (żeby od razu zaskoczyło)
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
-      await video.play();
-
-      dbg(`Kamera: OK (video ${video.videoWidth}x${video.videoHeight})`);
-
-      // Camera utils: wysyła klatki do mpPose
-      mpCamera = new Camera(video, {
-        onFrame: async () => {
-          if(!mpPose) return;
-          await mpPose.send({ image: video });
-        },
-        width: 1280,
-        height: 720
-      });
-
-      await mpCamera.start();
-
-      running = true;
-      setStatus(true);
-      setHint("Kamera działa", "Ustaw się bokiem: bark–biodro–kolano–kostka w kadrze.");
-      dbg("LIVE: uruchomione.");
-
-    }catch(err){
-      console.error(err);
-      running = false;
-      setStatus(false);
-      setHint("Błąd kamery", "Zobacz DEBUG (na dole).");
-      dbg("BŁĄD: " + (err?.message || String(err)));
-
-      // Dodatkowe podpowiedzi:
-      if(String(err).toLowerCase().includes("notallowed")){
-        dbg("TIP: Chrome → kłódka przy adresie → Kamera: Zezwalaj → odśwież.");
-      }
-      if(String(err).toLowerCase().includes("notfound")){
-        dbg("TIP: Nie wykryto kamery. Sprawdź w Menedżerze urządzeń / prywatność Windows.");
-      }
-    }
-  }
-
-  async function stop(){
-    try{
-      if(mpCamera){
-        await mpCamera.stop();
-        mpCamera = null;
-      }
-      if(video.srcObject){
-        video.srcObject.getTracks().forEach(t => t.stop());
-        video.srcObject = null;
-      }
-      if(mpPose){
-        // MediaPipe nie zawsze ma close() – bezpiecznie:
-        if(typeof mpPose.close === "function") mpPose.close();
-        mpPose = null;
-      }
-
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      running = false;
-      setStatus(false);
-      setHint("Zatrzymane", "Kliknij „Start kamery”, żeby wrócić do LIVE.");
-      dbg("STOP: zatrzymane.");
-
-    }catch(err){
-      console.error(err);
-      dbg("STOP-ERR: " + (err?.message || String(err)));
-    }
-  }
-
-  // ---------- Buttons ----------
-  $("btnStart").addEventListener("click", start);
-  $("btnStop").addEventListener("click", stop);
-
-  $("btnLogout").addEventListener("click", () => {
-    // Minimalne "logout" – wróć na root
-    window.location.href = "/";
-  });
-
-  // DEMO mode – jeśli chcesz tylko zobaczyć punkty bez kamery
-  $("selMode").addEventListener("change", () => {
-    const v = $("selMode").value;
-    if(v.includes("DEMO")){
-      stop();
-      // Rysujemy „testowe” punkty na czarnym tle
-      canvas.width = 1280; canvas.height = 720;
-      ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width,canvas.height);
-      drawPoint(520, 180, "shoulder");
-      drawPoint(490, 260, "elbow");
-      drawPoint(450, 310, "wrist");
-      drawPoint(560, 320, "hip");
-      drawPoint(640, 460, "knee");
-      drawPoint(610, 610, "ankle");
-      setHint("DEMO", "To są punkty testowe – wróć na LIVE, żeby użyć kamery.");
-      dbg("Tryb DEMO: OK.");
-    }else{
-      ctx.clearRect(0,0,canvas.width,canvas.height);
-      setHint("Uruchom kamerę", "Kliknij „Start kamery”.");
-      dbg("Tryb LIVE: gotowe.");
-    }
-  });
-
-  // ---------- Global error hooks ----------
-  window.addEventListener("error", (e) => {
-    dbg("JS-ERROR: " + (e?.message || "unknown"));
-  });
-  window.addEventListener("unhandledrejection", (e) => {
-    dbg("PROMISE-ERR: " + (e?.reason?.message || String(e?.reason)));
-  });
-
-  // start state
-  setStatus(false);
-  setHint("Uruchom kamerę", "Kliknij „Start kamery”.");
-})();
+document.getElementById("pin").addEventListener("keydown", (e) => {
+  if(e.key === "Enter") document.getElementById("loginBtn").click();
+});
 </script>
 </body>
 </html>
