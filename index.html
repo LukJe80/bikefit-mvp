@@ -3,19 +3,95 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Bikefit – Start</title>
+  <title>Bikefit – Logowanie</title>
+
   <style>
-    body{margin:0;background:#0b0b0c;color:#fff;font-family:system-ui;display:flex;align-items:center;justify-content:center;height:100vh}
-    .box{background:#141416;border:1px solid #26262a;border-radius:16px;padding:32px;text-align:center}
-    a{display:inline-block;margin-top:20px;padding:14px 22px;border-radius:999px;border:1px solid #333;color:#fff;text-decoration:none}
+    body{
+      margin:0;
+      height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#0b0b0c;
+      color:#fff;
+      font-family:system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .box{
+      background:#141416;
+      border:1px solid #26262a;
+      border-radius:16px;
+      padding:28px;
+      width:340px;
+      text-align:center;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    h2{margin:0 0 6px 0}
+    p{margin:0 0 16px 0; opacity:.85}
+    input,button{
+      width:100%;
+      margin-top:10px;
+      padding:12px 12px;
+      border-radius:10px;
+      border:1px solid #333;
+      background:#0f0f11;
+      color:#fff;
+      font-size:15px;
+      outline:none;
+      box-sizing:border-box;
+    }
+    button{
+      cursor:pointer;
+      font-weight:700;
+      background: linear-gradient(180deg, #2a2a2f, #141416);
+      border:1px solid #3a3a44;
+    }
+    button:hover{filter:brightness(1.08)}
+    .hint{font-size:12px; opacity:.7; margin-top:12px}
+    .err{color:#ff7b7b;font-size:13px;margin-top:10px; min-height:18px}
   </style>
 </head>
 <body>
-  <div class="box">
-    <h1>Bikefit MVP</h1>
-    <p>System analizy pozycji kolarskiej</p>
-    <a href="/bikefitting/index.html">Wejdź do Bikefittingu</a>
-  </div>
-</body>
 
+<div class="box">
+  <h2>Bikefit MVP</h2>
+  <p>Logowanie do panelu</p>
+
+  <input id="login" placeholder="Login" autocomplete="username">
+  <input id="pass" type="password" placeholder="Hasło" autocomplete="current-password">
+
+  <button id="btn" onclick="doLogin()">Zaloguj</button>
+  <div id="err" class="err"></div>
+  <div class="hint">Po zalogowaniu wejdziesz do: <b>/bikefitting/</b></div>
+</div>
+
+<script>
+  // MVP – proste hasło w kodzie (później podmienimy na Supabase)
+  const USER = "admin";
+  const PASS = "bikefit";
+
+  function doLogin(){
+    const u = document.getElementById("login").value.trim();
+    const p = document.getElementById("pass").value;
+
+    if(u === USER && p === PASS){
+      localStorage.setItem("bikefit_auth","1");
+      location.href = "/bikefitting/";
+    }else{
+      document.getElementById("err").textContent = "Błędny login lub hasło.";
+    }
+  }
+
+  // Enter też loguje
+  document.addEventListener("keydown",(e)=>{
+    if(e.key === "Enter") doLogin();
+  });
+
+  // jeśli już zalogowany → od razu do aplikacji
+  if(localStorage.getItem("bikefit_auth")==="1"){
+    // można odkomentować jeśli chcesz auto-przejście:
+    // location.href="/bikefitting/";
+  }
+</script>
+
+</body>
 </html>
