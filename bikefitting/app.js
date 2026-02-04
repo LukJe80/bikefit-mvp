@@ -34,6 +34,7 @@ let session = loadSession();
 function saveSession(){
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   updateBadge();
+  updatePresetUI(); // <— DODANE: odśwież presety gdy zapisujemy zmiany
 }
 
 function uuid(){
@@ -73,6 +74,38 @@ function updateBadge(){
   b.textContent = txt;
 }
 
+/* ===== PRESETY (UI w kroku "Bike / Dyscyplina") ===== */
+function fmtRange(r){
+  if(!r || r.length !== 2) return "—";
+  return `${r[0]}–${r[1]}°`;
+}
+
+function updatePresetUI(){
+  // Elementy mogą nie istnieć w innych krokach — zabezpieczenie
+  const kneeEl  = $("rangeKnee");
+  const elbowEl = $("rangeElbow");
+  const torsoEl = $("rangeTorso");
+  const hintEl  = $("presetHint");
+
+  if(!kneeEl && !elbowEl && !torsoEl && !hintEl) return;
+
+  // używamy funkcji presets() z presets.js
+  const p = presets(session.bike.discipline, session.bike.goal);
+
+  if(kneeEl)  kneeEl.textContent  = fmtRange(p.knee);
+  if(elbowEl) elbowEl.textContent = fmtRange(p.elbow);
+  if(torsoEl) torsoEl.textContent = fmtRange(p.torso);
+
+  if(hintEl){
+    hintEl.textContent =
+      `Preset aktywny: ${toLabelDiscipline(session.bike.discipline)} / ${toLabelGoal(session.bike.goal)}.`;
+  }
+
+  // global na później (instruktor/PRO)
+  window.BIKEFIT_PRESET = p;
+}
+/* ===== KONIEC PRESETÓW ===== */
+
 /* steps bar */
 function renderStepsBar(){
   const bar = $("stepsBar");
@@ -94,6 +127,11 @@ function showStep(id){
   }
   renderStepsBar();
   updateBadge();
+
+  if(id==="bike"){
+    // odśwież presety przy wejściu do kroku Bike
+    updatePresetUI();
+  }
 
   if(id==="report"){
     renderReport();
@@ -123,8 +161,18 @@ function bindInputs(){
   $("footCm").addEventListener("input", () => { session.body.footCm = $("footCm").value; saveSession(); });
   $("armsCm").addEventListener("input", () => { session.body.armsCm = $("armsCm").value; saveSession(); });
 
-  $("discipline").addEventListener("change", () => { session.bike.discipline = $("discipline").value; saveSession(); });
-  $("goal").addEventListener("change", () => { session.bike.goal = $("goal").value; saveSession(); });
+  $("discipline").addEventListener("change", () => {
+    session.bike.discipline = $("discipline").value;
+    saveSession(); // odświeży presety + badge
+  });
+
+  $("goal").addEventListener("change", () => {
+    session.bike.goal = $("goal").value;
+    saveSession(); // odświeży presety + badge
+  });
+
+  // na start też wypełnij presety
+  updatePresetUI();
 }
 
 /* nav buttons */
