@@ -65,6 +65,17 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
 <header>
   <h1>Bikefit LIVE – Instruktor (PWA) • 1 kamera (bok)</h1>
   <div class="row">
+    <button id="logoutBtn" style="margin-left:8px;">Wyloguj</button>
+
+<script>
+  const b = document.getElementById("logoutBtn");
+  if(b){
+    b.addEventListener("click", ()=>{
+      localStorage.removeItem("bikefit_auth");
+      window.location.href = "/";
+    });
+  }
+</script>
     <button id="btnStart">Start kamery</button>
     <button id="btnStop">Stop</button>
 
@@ -654,4 +665,5 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
 </script>
 </body>
 </html>
+
 
