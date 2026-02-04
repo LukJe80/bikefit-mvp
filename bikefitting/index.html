@@ -1,1112 +1,651 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bikefitting MVP (BOK + TYŁ) — DEMO v3.1</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Bikefit LIVE – Instruktor (PWA)</title>
+
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="theme-color" content="#0b0b0c"/>
+
   <style>
     :root{
-      --bg:#0b0e14;
-      --panel:#0f1420;
-      --panel2:#0b0f18;
-      --border:rgba(255,255,255,.08);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --accent:#4ade80;
-      --warn:#fbbf24;
-      --danger:#fb7185;
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-      --radius:14px;
-      --radius2:18px;
-      --gap:14px;
-      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Noto Sans", Arial, "Apple Color Emoji","Segoe UI Emoji";
+      --bg:#0b0b0c;
+      --panel:#141416;
+      --border:#26262a;
+      --muted:#9aa0a6;
+      --ok:#2a6a3a;
+      --warn:#6a5a2a;
+      --bad:#6a2a2a;
+      --text:#fff;
     }
-    html,body{height:100%;}
-    body{
-      margin:0;
-      background: radial-gradient(1200px 600px at 30% 0%, rgba(74,222,128,.08), transparent 60%),
-                  radial-gradient(900px 500px at 90% 10%, rgba(59,130,246,.08), transparent 60%),
-                  var(--bg);
-      color:var(--text);
-      font-family:var(--sans);
+    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    header{padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
+    h1{margin:0 0 8px 0;font-size:16px}
+    .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    select,input,button{
+      padding:8px 10px;border-radius:10px;border:1px solid #333;background:#0f0f11;color:#fff
     }
-    header{
-      position:sticky; top:0; z-index:50;
-      backdrop-filter: blur(10px);
-      background: rgba(11,14,20,.75);
-      border-bottom: 1px solid var(--border);
-    }
-    .topbar{
-      display:flex; align-items:center; gap:10px;
-      padding:10px 12px;
-      max-width: 1600px; margin:0 auto;
-    }
-    .brand{
-      font-weight:700;
-      letter-spacing:.2px;
-      font-size:13px;
-      opacity:.95;
-      padding:6px 10px;
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      display:flex; align-items:center; gap:8px;
-    }
-    .pill{
-      padding:6px 10px;
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--border);
-      border-radius:999px;
-      font-size:12px;
-      color:var(--muted);
-      display:flex; align-items:center; gap:8px;
-      white-space:nowrap;
-    }
-    .pill strong{color:var(--text); font-weight:600;}
-    select, input, button{
-      font-family:inherit;
-    }
-    .ctrl{
-      display:flex; align-items:center; gap:8px;
-      background: rgba(255,255,255,.04);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 6px 10px;
-    }
-    .ctrl label{font-size:12px;color:var(--muted);}
-    .ctrl select, .ctrl input{
-      border:none; outline:none; background:transparent;
-      color:var(--text);
-      font-size:12px;
-      min-width: 110px;
-    }
-    .btn{
-      cursor:pointer;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,.05);
-      color: var(--text);
-      border-radius: 999px;
-      padding: 7px 10px;
-      font-size:12px;
-      transition: transform .04s ease, background .15s ease, border-color .15s ease;
-      user-select:none;
-      white-space:nowrap;
-    }
-    .btn:hover{ background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.14); }
-    .btn:active{ transform: translateY(1px); }
-    .btn.primary{
-      background: rgba(74,222,128,.15);
-      border-color: rgba(74,222,128,.35);
-    }
-    .btn.danger{
-      background: rgba(251,113,133,.12);
-      border-color: rgba(251,113,133,.35);
-    }
-    .btn.warn{
-      background: rgba(251,191,36,.12);
-      border-color: rgba(251,191,36,.35);
-    }
+    button{cursor:pointer}
+    .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #333;background:#0f0f11;font-size:12px}
+    .pill b{font-weight:700}
+    .layout{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;padding:12px}
+    @media (max-width: 1100px){ .layout{grid-template-columns:1fr} }
 
-    main{
-      max-width:1600px;
-      margin: 12px auto 24px;
-      padding: 0 12px;
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px}
+    .card h2{margin:0 0 8px 0;font-size:14px}
+    .videoWrap{position:relative;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--border)}
+    video,canvas{display:block;width:100%;height:auto}
+    canvas{position:absolute;left:0;top:0}
+    .hint{color:var(--muted);font-size:12px;line-height:1.35}
+    .big{
+      font-size:18px;font-weight:800;margin:6px 0 8px 0
     }
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap: var(--gap);
-      align-items: stretch;
+    .coachBox{
+      border:1px solid #2a2a2f;border-radius:14px;padding:12px;background:#101014
     }
-    @media (max-width: 1200px){
-      .grid{ grid-template-columns: 1fr; }
-    }
-
-    .card{
-      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
-      border: 1px solid var(--border);
-      border-radius: var(--radius2);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-      min-height: 340px;
-      display:flex;
-      flex-direction:column;
-    }
-    .card h2{
-      margin:0;
-      padding: 12px 14px;
-      font-size: 14px;
-      letter-spacing:.2px;
-      border-bottom: 1px solid rgba(255,255,255,.06);
-      background: rgba(0,0,0,.18);
-    }
-
-    .row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      padding: 10px 14px;
-      border-bottom: 1px solid rgba(255,255,255,.06);
-      background: rgba(0,0,0,.10);
-      align-items:center;
-    }
-    .row .seg{
-      display:flex; gap:8px; align-items:center;
-    }
-    .row .seg label{font-size:12px;color:var(--muted);}
-    .row input{
-      width: 88px;
-      border:1px solid rgba(255,255,255,.08);
-      background: rgba(0,0,0,.25);
-      color: var(--text);
-      padding: 6px 8px;
-      border-radius: 10px;
-      font-size: 12px;
-      outline:none;
-    }
-    .row input:focus{border-color: rgba(74,222,128,.35);}
-
-    .canvasWrap{
-      display:grid;
-      grid-template-rows: 1fr auto;
-      gap: 10px;
-      padding: 12px 14px;
-      height: 100%;
-    }
-
-    canvas{
-      width: 100%;
-      height: 100%;
-      border-radius: var(--radius);
-      background: #000;
-      border: 1px solid rgba(255,255,255,.08);
-    }
-
-    .pre{
-      background: rgba(0,0,0,.25);
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: var(--radius);
-      padding: 10px;
-      color: #cbd5e1;
-      font-size: 11px;
-      font-family: var(--mono);
-      max-height: 170px;
-      overflow:auto;
-      white-space:pre;
-    }
-
-    .hint{
-      color: var(--muted);
-      font-size: 12px;
-      padding: 8px 14px 12px;
-    }
-    .status{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      padding: 10px 14px;
-      border-top: 1px solid rgba(255,255,255,.06);
-      background: rgba(0,0,0,.12);
-    }
-    .dot{
-      width:10px;height:10px;border-radius:999px;background:rgba(148,163,184,.4);
-      box-shadow: 0 0 0 4px rgba(148,163,184,.08);
-    }
-    .dot.ok{background: rgba(74,222,128,.95); box-shadow: 0 0 0 4px rgba(74,222,128,.12);}
-    .dot.warn{background: rgba(251,191,36,.95); box-shadow: 0 0 0 4px rgba(251,191,36,.12);}
-    .dot.bad{background: rgba(251,113,133,.95); box-shadow: 0 0 0 4px rgba(251,113,133,.12);}
-    .status span{font-size:12px;color:var(--muted);}
-    .status strong{color: var(--text); font-weight:600;}
-
-    .card.full{ grid-column: 1 / -1; min-height: 200px; }
-
-    .kbd{
-      font-family:var(--mono);
-      font-size:11px;
-      padding: 2px 6px;
-      border:1px solid rgba(255,255,255,.12);
-      border-radius:8px;
-      background: rgba(0,0,0,.25);
-      color:#e2e8f0;
-    }
-
-    /* demo labels */
-    .demoBox{
-      display:flex; flex-wrap:wrap; gap:10px;
-      padding: 12px 14px;
-    }
-    .demoBox .mini{
-      flex: 1 1 260px;
-      background: rgba(0,0,0,.22);
-      border: 1px solid rgba(255,255,255,.08);
-      border-radius: 14px;
-      padding: 10px 12px;
-    }
-    .mini h3{
-      margin:0 0 6px;
-      font-size: 12px;
-      color:#e2e8f0;
-      letter-spacing:.2px;
-    }
-    .mini p{
-      margin:0;
-      font-size: 12px;
-      color: var(--muted);
-      line-height:1.4;
-    }
-    .mini .btnRow{margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;}
-
-    /* NEW: live preview */
-  .previewGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .previewBox{background:#0b0e14;border:1px solid rgba(255,255,255,.08);border-radius:12px;overflow:hidden}
-  .previewBox header{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,.06);color:#cbd5e1;font-size:13px;letter-spacing:.2px}
-  .previewBox img{display:block;width:100%;height:auto;background:#000}
-  @media (max-width: 980px){ .previewGrid{grid-template-columns:1fr} }
-
+    .coachBox.ok{border-color:var(--ok)}
+    .coachBox.warn{border-color:var(--warn)}
+    .coachBox.bad{border-color:var(--bad)}
+    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    @media (max-width: 700px){ .metrics{grid-template-columns:1fr} }
+    .m{border:1px solid #2a2a2f;border-radius:12px;padding:10px;background:#0f0f11}
+    .m .k{color:var(--muted);font-size:12px}
+    .m .v{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:16px;margin-top:4px}
+    .mini{font-size:12px;color:var(--muted)}
+    .line{height:1px;background:#26262a;margin:10px 0}
   </style>
 </head>
-
 <body>
-  <header>
-    <div class="topbar">
-      <div class="brand">Bikefitting MVP (BOK + TYŁ) — DEMO v3.1</div>
+<header>
+  <h1>Bikefit LIVE – Instruktor (PWA) • 1 kamera (bok)</h1>
+  <div class="row">
+    <button id="btnStart">Start kamery</button>
+    <button id="btnStop">Stop</button>
 
-      <div class="ctrl">
-        <label for="mode">Tryb:</label>
-        <select id="mode">
-          <option value="hub">HUB (laptop)</option>
-          <option value="cam_side">CAM BOK</option>
-          <option value="cam_rear">CAM TYŁ</option>
-          <option value="demo">DEMO (bez kamer)</option>
-        </select>
-      </div>
+    <span class="pill">Status: <b id="status">OFF</b></span>
 
-      <div class="pill" title="Status WebSocket">
-        <span>WS:</span>
-        <strong id="wsState">OFFLINE</strong>
-      </div>
+    <label class="pill">Cel:
+      <select id="goal">
+        <option value="comfort">Komfort</option>
+        <option value="neutral" selected>Neutral</option>
+        <option value="aero">Aero</option>
+      </select>
+    </label>
 
-      <div class="ctrl">
-        <label for="room">Room:</label>
-        <input id="room" value="default" />
-      </div>
+    <label class="pill">Dyscyplina:
+      <select id="style">
+        <option value="road" selected>Szosa</option>
+        <option value="gravel">Gravel</option>
+        <option value="mtb">MTB</option>
+      </select>
+    </label>
 
-      <div class="ctrl" style="min-width:340px;">
-        <label for="wsUrl">WS URL:</label>
-        <input id="wsUrl" style="min-width:240px;" value="ws://localhost:8787/ws" />
-      </div>
+    <label class="pill">Wzrost (cm):
+      <input id="height" type="number" value="175" style="width:84px"/>
+    </label>
 
-      <button class="btn primary" id="btnConnect">Start</button>
-      <button class="btn danger" id="btnStop">Stop</button>
+    <label class="pill">Przekrok (cm):
+      <input id="inseam" type="number" value="82" style="width:84px"/>
+    </label>
 
-      <div class="pill">
-        <span>Tryb blink:</span>
-        <strong id="blinkMode">OFF</strong>
-      </div>
+    <label class="pill">Tryb:
+      <select id="stepMode">
+        <option value="live" selected>LIVE (bez nagrywania)</option>
+        <option value="guided">Instruktor krok po kroku</option>
+      </select>
+    </label>
+  </div>
+  <div class="hint" style="margin-top:8px">
+    Tip: kamera działa najlepiej na <b>HTTPS</b> (Vercel) albo <b>http://localhost</b>. Ustaw laptop bokiem do roweru: widoczne biodro–kolano–kostka.
+  </div>
+</header>
 
-      <div class="ctrl">
-        <label for="heightCm">Wzrost (cm):</label>
-        <input id="heightCm" value="175" />
-      </div>
-      <div class="ctrl">
-        <label for="inseamCm">Przekrok (cm):</label>
-        <input id="inseamCm" value="82" />
-      </div>
-
-      <button class="btn warn" id="btnDemo1">Demo 1</button>
-      <button class="btn warn" id="btnDemo2">Demo 2</button>
-      <button class="btn warn" id="btnDemo3">Demo 3</button>
-      <button class="btn" id="btnResetPoints">Reset punktów</button>
+<main class="layout">
+  <section class="card">
+    <h2>Podgląd + punkty</h2>
+    <div class="videoWrap">
+      <video id="video" playsinline autoplay muted></video>
+      <canvas id="overlay"></canvas>
     </div>
-  </header>
-
-  <main>
-    <div class="grid">
-      <!-- Kamera (tylko w trybie CAM) -->
-      <section class="card" id="cardCam">
-        <h2>Kamera</h2>
-        <div class="row">
-          <div class="seg"><label>Podgląd:</label> <span class="kbd">kamera + punkty</span></div>
-          <div class="seg"><label>Tryb:</label> <span class="kbd" id="camLabel">CAM</span></div>
-        </div>
-        <div class="canvasWrap">
-          <canvas id="camCanvas"></canvas>
-          <div class="pre" id="camPre">{ }</div>
-        </div>
-        <div class="status">
-          <div class="dot" id="camDot"></div>
-          <span>Źródło:</span> <strong id="camSrc">—</strong>
-          <span>FPS:</span> <strong id="camFps">—</strong>
-          <span>Wysyłka:</span> <strong id="camSend">—</strong>
-        </div>
-      </section>
-
-      <!-- BOK -->
-      <section class="card" id="cardSide">
-        <h2>BOK — punkty + metryki</h2>
-        <div class="row">
-          <div class="seg"><label>Tryb:</label> <span class="kbd">HUB / DEMO</span></div>
-          <div class="seg"><label>Źródło:</label> <span class="kbd" id="sideSrc">—</span></div>
-        </div>
-        <div class="canvasWrap">
-          <canvas id="sideCanvas"></canvas>
-          <div class="pre" id="sidePre">{ }</div>
-        </div>
-        <div class="status">
-          <div class="dot" id="sideDot"></div>
-          <span>Kolano:</span> <strong id="kneeAngle">—</strong>
-          <span>Łokieć:</span> <strong id="elbowAngle">—</strong>
-          <span>Rocking:</span> <strong id="rockingVal">—</strong>
-        </div>
-      </section>
-
-      <!-- TYŁ -->
-      <section class="card" id="cardRear">
-        <h2>TYŁ — punkty + metryki</h2>
-        <div class="row">
-          <div class="seg"><label>Tryb:</label> <span class="kbd">HUB / DEMO</span></div>
-          <div class="seg"><label>Źródło:</label> <span class="kbd" id="rearSrc">—</span></div>
-        </div>
-        <div class="canvasWrap">
-          <canvas id="rearCanvas"></canvas>
-          <div class="pre" id="rearPre">{ }</div>
-        </div>
-        <div class="status">
-          <div class="dot" id="rearDot"></div>
-          <span>Balance:</span> <strong id="balanceVal">—</strong>
-          <span>Drift:</span> <strong id="driftVal">—</strong>
-          <span>Knee-out:</span> <strong id="kneeOutVal">—</strong>
-        </div>
-      </section>
-
-  <section class="card full" id="cardPreview">
-    <h2>PODGLĄD KAMER (LIVE)</h2>
-    <div class="previewGrid">
-      <div class="previewBox">
-        <header>BOK (live)</header>
-        <img id="imgSide" alt="BOK live" />
-      </div>
-      <div class="previewBox">
-        <header>TYŁ (live)</header>
-        <img id="imgRear" alt="TYŁ live" />
-      </div>
+    <div class="mini" style="margin-top:8px">
+      Jeśli obraz jest czarny: sprawdź uprawnienia kamery w przeglądarce / systemie.
     </div>
-    <div class="hint">Podgląd jest opcjonalny: pojawi się, gdy kamera BOK/TYŁ wyśle klatki do HUB-a.</div>
   </section>
 
-  <section class="card full">
-        <h2>Rekomendacje</h2>
-        <div class="demoBox" id="recoBox">
-          <div class="mini">
-            <h3>BOK</h3>
-            <p id="recoSide">—</p>
-          </div>
-          <div class="mini">
-            <h3>TYŁ</h3>
-            <p id="recoRear">—</p>
-          </div>
-          <div class="mini">
-            <h3>Notatki / status</h3>
-            <p id="notes">DEMO punktów działa lokalnie. W trybie HUB łączysz: <span class="kbd">CAM BOK</span> + <span class="kbd">CAM TYŁ</span> podpinając się do jednego WS.</p>
-          </div>
-        </div>
-      </section>
+  <section class="card">
+    <h2>Instruktor</h2>
 
-      <section class="card full">
-        <h2>DEMO — szybkie scenariusze</h2>
-        <div class="demoBox">
-          <div class="mini">
-            <h3>Demo 1 (neutral)</h3>
-            <p>Poprawna pozycja: kolano ok, łokieć ok, balans ok.</p>
-            <div class="btnRow">
-              <button class="btn warn" id="btnDemoNeutral">Ustaw DEMO 1</button>
-            </div>
-          </div>
-          <div class="mini">
-            <h3>Demo 2 (zły reach)</h3>
-            <p>Zbyt wyciągnięta pozycja: łokieć za duży, bark za wysoko.</p>
-            <div class="btnRow">
-              <button class="btn warn" id="btnDemoBadReach">Ustaw DEMO 2</button>
-            </div>
-          </div>
-          <div class="mini">
-            <h3>Demo 3 (bujanie bioder)</h3>
-            <p>Rocking wysoki, knee angle skacze.</p>
-            <div class="btnRow">
-              <button class="btn warn" id="btnDemoRocking">Ustaw DEMO 3</button>
-            </div>
-          </div>
-        </div>
-        <div class="hint">
-          Tip: jeśli nie chcesz pisać ręcznie, korzystaj z kopiowania (<span class="kbd">Ctrl+C</span>) i nie przepisuj nazw interfejsów/URL.
-        </div>
-      </section>
+    <div id="coach" class="coachBox warn">
+      <div class="mini">Wskazówka</div>
+      <div class="big" id="coachTitle">Uruchom kamerę</div>
+      <div id="coachText" class="hint">Kliknij “Start kamery”.</div>
     </div>
-  </main>
 
-  <!-- ukryte wideo (tylko CAM) -->
-  <video id="camVideo" playsinline autoplay muted style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;"></video>
+    <div class="line"></div>
 
-  <script>
-/* =========================
-   Bikefitting MVP — single file
-   - HUB: odbiera punkty z CAM BOK i CAM TYŁ przez WS i rysuje na canvasach
-   - CAM: lokalnie pobiera kamerę, nakłada punkty (DEMO), wysyła do HUB
-   - DEMO: działa offline (bez WS)
-   ========================= */
+    <div class="metrics">
+      <div class="m">
+        <div class="k">Kąt kolana (DMP / dolny zakres)</div>
+        <div class="v" id="kneeOut">—</div>
+        <div class="mini">Najważniejsze do wysokości siodła.</div>
+      </div>
+      <div class="m">
+        <div class="k">Kąt łokcia (przybliżony)</div>
+        <div class="v" id="elbowOut">—</div>
+        <div class="mini">Pomaga ocenić reach / mostek.</div>
+      </div>
+      <div class="m">
+        <div class="k">Kąt tułowia (przybliżony)</div>
+        <div class="v" id="torsoOut">—</div>
+        <div class="mini">Pomaga ocenić drop / wysokość kokpitu.</div>
+      </div>
+      <div class="m">
+        <div class="k">Stabilność (szac.)</div>
+        <div class="v" id="stabOut">—</div>
+        <div class="mini">Wykrywa “szarpanie” / brak pewności punktów.</div>
+      </div>
+    </div>
 
-const els = {
-  mode: document.getElementById("mode"),
-  wsUrl: document.getElementById("wsUrl"),
-  btnConnect: document.getElementById("btnConnect"),
-  btnStop: document.getElementById("btnStop"),
-  wsState: document.getElementById("wsState"),
-  room: document.getElementById("room"),
-  blinkMode: document.getElementById("blinkMode"),
-  heightCm: document.getElementById("heightCm"),
-  inseamCm: document.getElementById("inseamCm"),
-  btnDemo1: document.getElementById("btnDemo1"),
-  btnDemo2: document.getElementById("btnDemo2"),
-  btnDemo3: document.getElementById("btnDemo3"),
-  btnResetPoints: document.getElementById("btnResetPoints"),
+    <div class="line"></div>
+    <div class="hint">
+      <b>Instruktor krok po kroku</b> (tryb Guided) działa tak:
+      wybiera 1 temat → daje zmianę (np. 3–5 mm) → czeka aż ustabilizujesz jazdę → ocenia czy jest lepiej.
+    </div>
+  </section>
+</main>
 
-  // cards
-  cardCam: document.getElementById("cardCam"),
-  cardSide: document.getElementById("cardSide"),
-  cardRear: document.getElementById("cardRear"),
+<!-- MediaPipe Pose (CDN) -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
 
-  // cam
-  v: document.getElementById("camVideo"),
-  c: document.getElementById("camCanvas"),
-  camPre: document.getElementById("camPre"),
-  camLabel: document.getElementById("camLabel"),
-  camDot: document.getElementById("camDot"),
-  camSrc: document.getElementById("camSrc"),
-  camFps: document.getElementById("camFps"),
-  camSend: document.getElementById("camSend"),
+<script>
+(() => {
+  // ---------- UI ----------
+  const video = document.getElementById("video");
+  const overlay = document.getElementById("overlay");
+  const ctx = overlay.getContext("2d");
 
-  // side
-  sideCanvas: document.getElementById("sideCanvas"),
-  sidePre: document.getElementById("sidePre"),
-  sideDot: document.getElementById("sideDot"),
-  sideSrc: document.getElementById("sideSrc"),
-  kneeAngle: document.getElementById("kneeAngle"),
-  elbowAngle: document.getElementById("elbowAngle"),
-  rockingVal: document.getElementById("rockingVal"),
+  const btnStart = document.getElementById("btnStart");
+  const btnStop  = document.getElementById("btnStop");
+  const statusEl = document.getElementById("status");
 
-  // rear
-  rearCanvas: document.getElementById("rearCanvas"),
-  rearPre: document.getElementById("rearPre"),
-  rearDot: document.getElementById("rearDot"),
-  rearSrc: document.getElementById("rearSrc"),
-  balanceVal: document.getElementById("balanceVal"),
-  driftVal: document.getElementById("driftVal"),
-  kneeOutVal: document.getElementById("kneeOutVal"),
+  const goalEl = document.getElementById("goal");
+  const styleEl = document.getElementById("style");
+  const stepModeEl = document.getElementById("stepMode");
 
-  // reco
-  recoSide: document.getElementById("recoSide"),
-  recoRear: document.getElementById("recoRear"),
-  notes: document.getElementById("notes"),
+  const kneeOut = document.getElementById("kneeOut");
+  const elbowOut = document.getElementById("elbowOut");
+  const torsoOut = document.getElementById("torsoOut");
+  const stabOut = document.getElementById("stabOut");
 
-  // demo quick
-  btnDemoNeutral: document.getElementById("btnDemoNeutral"),
-  btnDemoBadReach: document.getElementById("btnDemoBadReach"),
-  btnDemoRocking: document.getElementById("btnDemoRocking"),
+  const coachBox = document.getElementById("coach");
+  const coachTitle = document.getElementById("coachTitle");
+  const coachText = document.getElementById("coachText");
 
-  imgSide: document.getElementById("imgSide"),
-  imgRear: document.getElementById("imgRear"),
-};
+  function setStatus(txt){ statusEl.textContent = txt; }
 
-function q(sel){ return document.querySelector(sel); }
-function getRoom(){ return (els.room && els.room.value ? els.room.value : "default").trim() || "default"; }
+  // ---------- Math helpers ----------
+  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
-let ws = null;
-let wsConnected = false;
-let wsLastMsgAt = 0;
-
-let runningCam = false;
-let mediaStream = null;
-let rafId = null;
-
-const ctx = els.c.getContext("2d", { willReadFrequently: true });
-const frameCanvas = document.createElement("canvas");
-const frameCtx = frameCanvas.getContext("2d");
-let frameTick = 0;
-
-const sideCtx = els.sideCanvas.getContext("2d");
-const rearCtx = els.rearCanvas.getContext("2d");
-
-function setDot(dotEl, state){
-  dotEl.classList.remove("ok","warn","bad");
-  if(state==="ok") dotEl.classList.add("ok");
-  if(state==="warn") dotEl.classList.add("warn");
-  if(state==="bad") dotEl.classList.add("bad");
-}
-
-function setWsState(s){
-  els.wsState.textContent = s;
-}
-
-function currentMode(){
-  return els.mode.value;
-}
-function currentRole(){
-  const m = currentMode();
-  if(m==="cam_side") return "side";
-  if(m==="cam_rear") return "rear";
-  return "hub";
-}
-
-// UI visibility based on mode
-function applyModeUI(){
-  const m = currentMode();
-  const isCam = (m==="cam_side" || m==="cam_rear");
-  els.cardCam.style.display = isCam ? "flex" : "none";
-  // side/rear always visible in HUB/DEMO; also visible when CAM (for debug)
-  els.cardSide.style.display = "flex";
-  els.cardRear.style.display = "flex";
-  els.camLabel.textContent = isCam ? (m==="cam_side" ? "CAM BOK" : "CAM TYŁ") : "CAM";
-}
-els.mode.addEventListener("change", applyModeUI);
-applyModeUI();
-
-/* =========================
-   DEMO data (points)
-   ========================= */
-
-function demoSideNeutral(){
-  return {
-    shoulder:{x:520,y:160}, elbow:{x:480,y:240}, wrist:{x:430,y:280},
-    hip:{x:560,y:280}, knee:{x:600,y:410}, ankle:{x:610,y:520}
-  };
-}
-function demoSideBadReach(){
-  return {
-    shoulder:{x:560,y:140}, elbow:{x:520,y:250}, wrist:{x:450,y:320},
-    hip:{x:590,y:290}, knee:{x:620,y:430}, ankle:{x:640,y:540}
-  };
-}
-function demoSideRocking(t){
-  const base = demoSideNeutral();
-  const wob = Math.sin(t*2)*18;
-  base.hip.y += wob;
-  base.knee.y += wob*0.6;
-  return base;
-}
-
-function demoRearNeutral(){
-  return {
-    l_shoulder:{x:420,y:200}, r_shoulder:{x:520,y:200},
-    l_pelvis:{x:440,y:330}, r_pelvis:{x:500,y:330},
-    l_knee:{x:455,y:470}, r_knee:{x:495,y:470}
-  };
-}
-function demoRearDrift(t){
-  const base = demoRearNeutral();
-  const drift = Math.sin(t*1.4)*26;
-  base.l_pelvis.x += drift;
-  base.r_pelvis.x += drift;
-  base.l_shoulder.x += drift*0.5;
-  base.r_shoulder.x += drift*0.5;
-  return base;
-}
-function demoRearKneeOut(t){
-  const base = demoRearNeutral();
-  const ko = (Math.sin(t*1.2)+1)*0.5 * 35;
-  base.l_knee.x -= ko;
-  base.r_knee.x += ko*0.2;
-  return base;
-}
-
-let demoMode = 1; // 1 neutral, 2 bad reach, 3 rocking
-let blink = false;
-
-function setDemo(n){
-  demoMode = n;
-  els.blinkMode.textContent = (n===2 ? "Bad reach" : n===3 ? "Rocking" : "Neutral");
-}
-
-els.btnDemo1.addEventListener("click", ()=>setDemo(1));
-els.btnDemo2.addEventListener("click", ()=>setDemo(2));
-els.btnDemo3.addEventListener("click", ()=>setDemo(3));
-
-els.btnDemoNeutral.addEventListener("click", ()=>setDemo(1));
-els.btnDemoBadReach.addEventListener("click", ()=>setDemo(2));
-els.btnDemoRocking.addEventListener("click", ()=>setDemo(3));
-
-els.btnResetPoints.addEventListener("click", ()=>{
-  lastSide = null;
-  lastRear = null;
-  setDot(els.sideDot, "");
-  setDot(els.rearDot, "");
-  els.sidePre.textContent = "{ }";
-  els.rearPre.textContent = "{ }";
-  els.sideSrc.textContent = "—";
-  els.rearSrc.textContent = "—";
-  updateMetrics();
-});
-
-/* =========================
-   Metrics (very simple)
-   ========================= */
-
-function angle(a,b,c){
-  // angle ABC in degrees
-  const ab = {x:a.x-b.x, y:a.y-b.y};
-  const cb = {x:c.x-b.x, y:c.y-b.y};
-  const dot = ab.x*cb.x + ab.y*cb.y;
-  const mag = Math.hypot(ab.x,ab.y) * Math.hypot(cb.x,cb.y);
-  if(!mag) return null;
-  const v = Math.max(-1, Math.min(1, dot/mag));
-  return Math.round((Math.acos(v)*180/Math.PI)*10)/10;
-}
-
-function updateMetrics(){
-  // Side metrics
-  if(lastSide && lastSide.points){
-    const p = lastSide.points;
-    const knee = (p.hip && p.knee && p.ankle) ? angle(p.hip,p.knee,p.ankle) : null;
-    const elbow = (p.shoulder && p.elbow && p.wrist) ? angle(p.shoulder,p.elbow,p.wrist) : null;
-
-    els.kneeAngle.textContent = knee ? `${knee}°` : "—";
-    els.elbowAngle.textContent = elbow ? `${elbow}°` : "—";
-
-    // rocking heuristic: compare hip y to baseline
-    if(sideBaselineHipY==null && p.hip) sideBaselineHipY = p.hip.y;
-    const rocking = (p.hip && sideBaselineHipY!=null) ? Math.round(Math.abs(p.hip.y - sideBaselineHipY)) : null;
-    els.rockingVal.textContent = rocking!=null ? `${rocking}` : "—";
-  }else{
-    els.kneeAngle.textContent = "—";
-    els.elbowAngle.textContent = "—";
-    els.rockingVal.textContent = "—";
+  function angleABC(a,b,c){
+    // angle at b from points a-b-c (in degrees)
+    if(!a||!b||!c) return NaN;
+    const ab = {x:a.x-b.x, y:a.y-b.y};
+    const cb = {x:c.x-b.x, y:c.y-b.y};
+    const dot = ab.x*cb.x + ab.y*cb.y;
+    const nab = Math.hypot(ab.x, ab.y);
+    const ncb = Math.hypot(cb.x, cb.y);
+    const cos = dot / (nab*ncb + 1e-9);
+    const v = clamp(cos, -1, 1);
+    return Math.acos(v) * 180 / Math.PI;
   }
 
-  // Rear metrics
-  if(lastRear && lastRear.points){
-    const p = lastRear.points;
-    // pelvis center
-    if(p.l_pelvis && p.r_pelvis){
-      const cx = (p.l_pelvis.x + p.r_pelvis.x)/2;
-      if(rearBaselinePelvisX==null) rearBaselinePelvisX = cx;
-      const drift = Math.round(cx - rearBaselinePelvisX);
-      els.driftVal.textContent = `${drift}`;
-    }else els.driftVal.textContent = "—";
-
-    // balance: left-right shoulder height difference
-    if(p.l_shoulder && p.r_shoulder){
-      const bal = Math.round(p.l_shoulder.y - p.r_shoulder.y);
-      els.balanceVal.textContent = `${bal}`;
-    }else els.balanceVal.textContent = "—";
-
-    // knee-out: left knee x vs pelvis x
-    if(p.l_knee && p.l_pelvis){
-      const ko = Math.round(p.l_pelvis.x - p.l_knee.x);
-      els.kneeOutVal.textContent = `${ko}`;
-    }else els.kneeOutVal.textContent = "—";
-  }else{
-    els.balanceVal.textContent = "—";
-    els.driftVal.textContent = "—";
-    els.kneeOutVal.textContent = "—";
+  // ---------- Rolling windows (stabilność + uśrednianie) ----------
+  function rolling(n){
+    const arr = [];
+    return {
+      push(v){ arr.push(v); if(arr.length>n) arr.shift(); },
+      mean(){
+        const ok = arr.filter(x => Number.isFinite(x));
+        if(!ok.length) return NaN;
+        return ok.reduce((a,b)=>a+b,0)/ok.length;
+      },
+      std(){
+        const m = this.mean();
+        if(!Number.isFinite(m)) return NaN;
+        const ok = arr.filter(x => Number.isFinite(x));
+        const v = ok.reduce((a,b)=>a+(b-m)*(b-m),0)/ok.length;
+        return Math.sqrt(v);
+      },
+      last(){ return arr.length?arr[arr.length-1]:NaN; },
+      size(){ return arr.length; }
+    };
   }
 
-  // Recommendations (very basic text)
-  els.recoSide.textContent = buildRecoSide();
-  els.recoRear.textContent = buildRecoRear();
-}
+  const kneeWin = rolling(45);   // ok. ~1.5s przy 30fps
+  const elbowWin = rolling(45);
+  const torsoWin = rolling(45);
+  const confWin = rolling(45);
 
-function buildRecoSide(){
-  const knee = els.kneeAngle.textContent;
-  const elbow = els.elbowAngle.textContent;
-  const rocking = parseFloat(els.rockingVal.textContent);
-  let out = [];
-  if(knee!=="—"){
-    const v = parseFloat(knee);
-    if(v<135) out.push("Kolano: za mały kąt → możliwe za nisko siodełko.");
-    else if(v>155) out.push("Kolano: za duży kąt → możliwe za wysoko siodełko.");
-    else out.push("Kolano: ok.");
-  }else out.push("Kolano: brak danych.");
-  if(elbow!=="—"){
-    const v = parseFloat(elbow);
-    if(v>165) out.push("Łokieć: prawie prosty → możliwe za duży reach / za nisko kierownica.");
-    else if(v<140) out.push("Łokieć: mocno zgięty → możliwe za krótki reach.");
-    else out.push("Łokieć: ok.");
-  }else out.push("Łokieć: brak danych.");
-  if(!isNaN(rocking)){
-    if(rocking>18) out.push("Rocking: wysokie bujanie bioder → sprawdź wysokość siodła / stabilizację.");
-    else out.push("Rocking: ok.");
-  }
-  return out.join(" ");
-}
-function buildRecoRear(){
-  const drift = parseFloat(els.driftVal.textContent);
-  const bal = parseFloat(els.balanceVal.textContent);
-  const ko = parseFloat(els.kneeOutVal.textContent);
-  let out = [];
-  if(!isNaN(drift)){
-    if(Math.abs(drift)>20) out.push("Drift miednicy: duży → sprawdź ustawienie siodła / asymetrię.");
-    else out.push("Drift miednicy: ok.");
-  }else out.push("Drift miednicy: brak danych.");
-  if(!isNaN(bal)){
-    if(Math.abs(bal)>12) out.push("Balans barków: nierówno → możliwa asymetria / ustawienie kierownicy.");
-    else out.push("Balans barków: ok.");
-  }else out.push("Balans barków: brak danych.");
-  if(!isNaN(ko)){
-    if(ko>35) out.push("Knee-out: wysokie → kolano ucieka na zewnątrz (kontrola toru, bloki, Q-factor).");
-    else out.push("Knee-out: ok.");
-  }else out.push("Knee-out: brak danych.");
-  return out.join(" ");
-}
+  // ---------- Coach targets (proste, stabilne na MVP) ----------
+  function targets(){
+    const style = styleEl.value;
+    const goal = goalEl.value;
 
-/* =========================
-   Drawing
-   ========================= */
+    // Zakresy są celowo "bezpieczne" (nie ekstremalne).
+    // To MVP – dopracujemy po testach.
+    let knee = [140, 155]; // (większy = bardziej wyprostowane)
+    let elbow = [145, 170];
+    let torso = [35, 55];  // im mniejszy, tym bardziej aero (przybliżenie)
 
-function resizeCanvasToDisplaySize(canvas){
-  const rect = canvas.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  const w = Math.max(2, Math.floor(rect.width * dpr));
-  const h = Math.max(2, Math.floor(rect.height * dpr));
-  if(canvas.width !== w || canvas.height !== h){
-    canvas.width = w;
-    canvas.height = h;
-    return true;
-  }
-  return false;
-}
-
-function drawPoints(ctx2d, points, labels=true){
-  if(!points) return;
-  const keys = Object.keys(points);
-  for(const k of keys){
-    const p = points[k];
-    if(!p) continue;
-    ctx2d.beginPath();
-    ctx2d.arc(p.x, p.y, 7, 0, Math.PI*2);
-    ctx2d.strokeStyle = "rgba(255,255,255,.95)";
-    ctx2d.lineWidth = 2;
-    ctx2d.stroke();
-    ctx2d.fillStyle = "rgba(255,255,255,.08)";
-    ctx2d.fill();
-    if(labels){
-      ctx2d.fillStyle = "rgba(255,255,255,.85)";
-      ctx2d.font = "14px ui-sans-serif, system-ui";
-      ctx2d.fillText(k, p.x + 10, p.y + 4);
+    if(style === "mtb"){
+      knee = [138, 153];
+      elbow = [150, 175];
+      torso = [40, 65];
+    } else if(style === "gravel"){
+      knee = [139, 154];
+      elbow = [148, 173];
+      torso = [38, 60];
     }
+
+    if(goal === "comfort"){
+      elbow = [150, 175];
+      torso = [45, 70];
+    } else if(goal === "aero"){
+      elbow = [140, 165];
+      torso = [30, 50];
+    }
+
+    return { knee, elbow, torso };
   }
-}
 
-function clearAndDraw(ctx2d, canvas, points){
-  resizeCanvasToDisplaySize(canvas);
-  ctx2d.clearRect(0,0,canvas.width, canvas.height);
-  // background already black
-  drawPoints(ctx2d, points, true);
-}
+  // ---------- Guided step state ----------
+  const guided = {
+    step: 0, // 0=setup, 1=siodlo, 2=reach, 3=drop
+    lockUntilStable: false,
+    lastAdviceAt: 0
+  };
 
-/* =========================
-   WS connect
-   ========================= */
-
-function connectWS(){
-  if(ws) try{ ws.close(); }catch(e){}
-  const url = els.wsUrl.value.trim();
-  if(!url){
-    alert("Podaj WS URL.");
-    return;
+  function setCoach(level, title, text){
+    coachBox.classList.remove("ok","warn","bad");
+    coachBox.classList.add(level);
+    coachTitle.textContent = title;
+    coachText.textContent = text;
   }
-  ws = new WebSocket(url);
-  wsConnected = false;
 
-  setWsState("CONNECTING…");
+  function mmStepText(){
+    // małe kroki (bezpieczne)
+    return "Zmieniaj małymi krokami: 3–5 mm i ponownie oceń po ~10–20 obrotach.";
+  }
 
-  ws.onopen = ()=>{
-    wsConnected = true;
-    setWsState("ONLINE");
-    const role = currentRole();
-    ws.send(JSON.stringify({type:"join", room: getRoom(), role}));
-    els.notes.textContent = `Połączono WS. Room=${getRoom()}, role=${role}.`;
-  };
+  function liveCoach(knee, elbow, torso, stability){
+    const t = targets();
 
-  ws.onclose = ()=>{
-    wsConnected = false;
-    setWsState("OFFLINE");
-  };
-
-  ws.onerror = ()=>{
-    wsConnected = false;
-    setWsState("ERROR");
-  };
-
-  ws.onmessage = (ev)=>{
-    wsLastMsgAt = Date.now();
-    let msg=null;
-    try{ msg = JSON.parse(ev.data); }catch(e){ return; }
-    if(msg.type==="frame" && (currentMode()==="hub" || currentMode()==="demo")){
-      if(msg.role==="side" && msg.jpeg) els.imgSide.src = msg.jpeg;
-      if(msg.role==="rear" && msg.jpeg) els.imgRear.src = msg.jpeg;
+    // jeśli niski confidence / niestabilnie:
+    if(stability < 0.55){
+      setCoach("warn","Ustaw kadr i światło",
+        "Nie łapię stabilnie punktów. Ustaw kamerę bokiem, doświetl, pokaż biodro–kolano–kostkę. Potem wróć do pedałowania.");
       return;
     }
-    // messages: points from cams
-    if(msg.type==="points"){
-      if(msg.role==="side"){ lastSide = msg; setDot(els.sideDot,"ok"); els.sideSrc.textContent = "CAM BOK"; }
-      if(msg.role==="rear"){ lastRear = msg; setDot(els.rearDot,"ok"); els.rearSrc.textContent = "CAM TYŁ"; }
-      updateHubUI();
-    }
-  };
-}
 
-function stopWS(){
-  if(ws) try{ ws.close(); }catch(e){}
-  ws=null;
-  wsConnected=false;
-  setWsState("OFFLINE");
-}
-
-els.btnConnect.addEventListener("click", ()=>{
-  const m = currentMode();
-  if(m==="demo"){
-    stopWS();
-    startDemoLoop();
-    return;
-  }
-  connectWS();
-  if(m==="cam_side" || m==="cam_rear") startCamera();
-});
-
-els.btnStop.addEventListener("click", ()=>{
-  stopWS();
-  stopCamera();
-  stopDemoLoop();
-});
-
-/* =========================
-   HUB view update
-   ========================= */
-
-let lastSide = null;
-let lastRear = null;
-
-let sideBaselineHipY = null;
-let rearBaselinePelvisX = null;
-
-function updateHubUI(){
-  // Draw canvases
-  if(lastSide && lastSide.points){
-    clearAndDraw(sideCtx, els.sideCanvas, lastSide.points);
-    els.sidePre.textContent = JSON.stringify({points:lastSide.points}, null, 2);
-  }
-  if(lastRear && lastRear.points){
-    clearAndDraw(rearCtx, els.rearCanvas, lastRear.points);
-    els.rearPre.textContent = JSON.stringify({points:lastRear.points}, null, 2);
-  }
-  updateMetrics();
-}
-
-/* =========================
-   Camera mode (simulated points overlay)
-   ========================= */
-
-let lastFrameAt = 0;
-let fps = 0;
-
-async function startCamera(){
-  if(runningCam) return;
-  runningCam = true;
-  setDot(els.camDot,"warn");
-  els.camSend.textContent = wsConnected ? "WS" : "OFFLINE";
-  els.camSrc.textContent = "getUserMedia…";
-
-  try{
-    mediaStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}, audio:false});
-    els.v.srcObject = mediaStream;
-    await els.v.play();
-    els.camSrc.textContent = "Camera OK";
-    setDot(els.camDot,"ok");
-  }catch(e){
-    els.camSrc.textContent = "BŁĄD kamery";
-    setDot(els.camDot,"bad");
-    runningCam = false;
-    return;
-  }
-
-  lastFrameAt = performance.now();
-  fps = 0;
-  frameTick = 0;
-  rafId = requestAnimationFrame(camLoop);
-}
-
-function stopCamera(){
-  runningCam = false;
-  if(rafId) cancelAnimationFrame(rafId);
-  rafId = null;
-  if(mediaStream){
-    mediaStream.getTracks().forEach(t=>t.stop());
-    mediaStream=null;
-  }
-  els.v.srcObject = null;
-  setDot(els.camDot,"");
-  els.camSrc.textContent = "—";
-  els.camFps.textContent = "—";
-  els.camSend.textContent = "—";
-}
-
-function camLoop(t){
-  if(!runningCam) return;
-
-  // calc FPS
-  const dt = t - lastFrameAt;
-  lastFrameAt = t;
-  const inst = dt>0 ? 1000/dt : 0;
-  fps = fps*0.9 + inst*0.1;
-  els.camFps.textContent = fps ? fps.toFixed(1) : "—";
-
-  // draw video frame to canvas
-  resizeCanvasToDisplaySize(els.c);
-  const w = els.c.width;
-  const h = els.c.height;
-
-  ctx.clearRect(0,0,w,h);
-  // cover
-  if(els.v.videoWidth){
-    const vw = els.v.videoWidth;
-    const vh = els.v.videoHeight;
-    const scale = Math.max(w/vw, h/vh);
-    const dw = vw*scale, dh = vh*scale;
-    const dx = (w-dw)/2, dy = (h-dh)/2;
-    ctx.drawImage(els.v, dx, dy, dw, dh);
-  }else{
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0,0,w,h);
-  }
-
-  // Generate demo points in canvas coordinate space (simple)
-  let points = null;
-  const role = currentRole();
-
-  if(role==="side"){
-    if(demoMode===1) points = demoSideNeutral();
-    if(demoMode===2) points = demoSideBadReach();
-    if(demoMode===3) points = demoSideRocking(t/1000);
-  }
-  if(role==="rear"){
-    if(demoMode===1) points = demoRearNeutral();
-    if(demoMode===2) points = demoRearDrift(t/1000);
-    if(demoMode===3) points = demoRearKneeOut(t/1000);
-  }
-
-  // scale demo points from "design space" (approx 800x600) to current canvas
-  if(points){
-    const sx = w/800, sy = h/600;
-    const scaled = {};
-    for(const k of Object.keys(points)){
-      scaled[k] = {x: points[k].x*sx, y: points[k].y*sy};
+    // priorytet: siodło (kolano)
+    if(Number.isFinite(knee)){
+      if(knee > t.knee[1]){
+        setCoach("bad","Kolano zbyt wyprostowane",
+          `Kąt kolana ~ ${knee.toFixed(1)}° (za dużo). Najczęściej siodło jest za wysoko → obniż o 3–5 mm. ${mmStepText()}`);
+        return;
+      }
+      if(knee < t.knee[0]){
+        setCoach("bad","Kolano zbyt ugięte",
+          `Kąt kolana ~ ${knee.toFixed(1)}° (za mało). Najczęściej siodło jest za nisko → podnieś o 3–5 mm. ${mmStepText()}`);
+        return;
+      }
     }
 
-    // draw overlay
-    drawPoints(ctx, scaled, true);
-
-    // update camPre
-    els.camPre.textContent = JSON.stringify({role, points: scaled}, null, 2);
-
-    // send to HUB
-    if(wsConnected && ws && ws.readyState===1){
-      const payload = scaled;
-      ws.send(JSON.stringify({type:"points", room: getRoom(), role, t: performance.now(), points: payload}));
-    frameTick++;
-    if(frameTick % 12 === 0){
-      const maxW = 640;
-      const scale = Math.min(1, maxW / w);
-      frameCanvas.width = Math.round(w * scale);
-      frameCanvas.height = Math.round(h * scale);
-      frameCtx.drawImage(els.v, 0, 0, frameCanvas.width, frameCanvas.height);
-      const data = frameCanvas.toDataURL("image/jpeg", 0.55);
-      ws.send(JSON.stringify({type:"frame", room: getRoom(), role, t: performance.now(), jpeg: data}));
+    // reach (łokieć)
+    if(Number.isFinite(elbow)){
+      if(elbow > t.elbow[1]){
+        setCoach("warn","Możliwie za duży reach",
+          `Łokieć ~ ${elbow.toFixed(1)}° (prawie prosta ręka). Test: krótszy mostek o 10 mm lub 5–10 mm wyżej kokpit.`);
+        return;
+      }
+      if(elbow < t.elbow[0]){
+        setCoach("warn","Możliwie za krótki reach / zbyt “ciasno”",
+          `Łokieć ~ ${elbow.toFixed(1)}° (mocno ugięty). Jeśli nie celujesz w aero: test dłuższy mostek +10 mm lub trochę niżej/ dalej chwyt.`);
+        return;
+      }
     }
-      els.camSend.textContent = "WS";
-    }else{
-      els.camSend.textContent = "OFFLINE";
+
+    // drop / tułów
+    if(Number.isFinite(torso)){
+      if(torso > t.torso[1]){
+        setCoach("warn","Tułów zbyt pionowo",
+          `Tułów ~ ${torso.toFixed(1)}° (wysoko). Jeśli chcesz bardziej aero: niżej kokpit (5 mm) lub dłuższy mostek (10 mm) – jedna zmiana naraz.`);
+        return;
+      }
+      if(torso < t.torso[0]){
+        setCoach("warn","Tułów bardzo nisko",
+          `Tułów ~ ${torso.toFixed(1)}° (nisko). Jeśli czujesz napięcia: podnieś kokpit 5–10 mm (podkładka / mostek).`);
+        return;
+      }
+    }
+
+    setCoach("ok","Wygląda dobrze (LIVE)",
+      "Kąty są w bezpiecznym zakresie. Jeśli chcesz, przełącz tryb na „Instruktor krok po kroku”, a poprowadzę zmiany 1 po 1.");
+  }
+
+  function guidedCoach(knee, elbow, torso, stability){
+    const t = targets();
+
+    if(stability < 0.55){
+      setCoach("warn","Krok 0: ustaw kadr",
+        "Ustaw kamerę bokiem: biodro–kolano–kostka w kadrze. Doświetl. Wróć do pedałowania.");
+      guided.step = 0;
+      return;
+    }
+
+    // uśrednione wartości
+    const km = knee;
+    const em = elbow;
+    const tm = torso;
+
+    if(guided.step === 0){
+      setCoach("warn","Krok 1: siodło (wysokość)",
+        "Jedź stabilnie 10–15 s. Potem pokażę, czy podnieść/obniżyć siodło.");
+      guided.step = 1;
+      return;
+    }
+
+    if(guided.step === 1){
+      if(!Number.isFinite(km)){
+        setCoach("warn","Krok 1: brak kąta kolana",
+          "Nie widzę punktów nogi. Pokaż biodro–kolano–kostkę.");
+        return;
+      }
+      if(km > t.knee[1]){
+        setCoach("bad","Krok 1: obniż siodło",
+          `Kąt kolana ~ ${km.toFixed(1)}° (za duży). Obniż siodło o 3–5 mm i jedź 10–20 obrotów, aż wartości się ustabilizują.`);
+        return;
+      }
+      if(km < t.knee[0]){
+        setCoach("bad","Krok 1: podnieś siodło",
+          `Kąt kolana ~ ${km.toFixed(1)}° (za mały). Podnieś siodło o 3–5 mm i jedź 10–20 obrotów.`);
+        return;
+      }
+      setCoach("ok","Krok 1: siodło OK",
+        `Kolano ~ ${km.toFixed(1)}° w zakresie. Przechodzimy do reach (mostek).`);
+      guided.step = 2;
+      return;
+    }
+
+    if(guided.step === 2){
+      if(!Number.isFinite(em)){
+        setCoach("warn","Krok 2: brak kąta łokcia",
+          "Nie widzę dobrze ręki. Spróbuj tak, by bark–łokieć–nadgarstek były w kadrze.");
+        return;
+      }
+      if(em > t.elbow[1]){
+        setCoach("warn","Krok 2: skróć reach",
+          `Łokieć ~ ${em.toFixed(1)}° (za prosto). Test: mostek -10 mm albo 5–10 mm wyżej kokpit (jedno naraz).`);
+        return;
+      }
+      if(em < t.elbow[0]){
+        setCoach("warn","Krok 2: wydłuż reach",
+          `Łokieć ~ ${em.toFixed(1)}° (za ugięty). Test: mostek +10 mm lub bardziej „do przodu” chwyt.`);
+        return;
+      }
+      setCoach("ok","Krok 2: reach OK",
+        `Łokieć ~ ${em.toFixed(1)}° w zakresie. Przechodzimy do tułowia (drop).`);
+      guided.step = 3;
+      return;
+    }
+
+    if(guided.step === 3){
+      if(!Number.isFinite(tm)){
+        setCoach("warn","Krok 3: brak kąta tułowia",
+          "Nie widzę stabilnie barku i biodra. Popraw kadr.");
+        return;
+      }
+      if(tm > t.torso[1]){
+        setCoach("warn","Krok 3: tułów zbyt wysoko",
+          `Tułów ~ ${tm.toFixed(1)}°. Jeśli chcesz bardziej aero: obniż kokpit o 5 mm i ponownie oceń.`);
+        return;
+      }
+      if(tm < t.torso[0]){
+        setCoach("warn","Krok 3: tułów bardzo nisko",
+          `Tułów ~ ${tm.toFixed(1)}°. Jeśli czujesz napięcie: podnieś kokpit 5–10 mm.`);
+        return;
+      }
+      setCoach("ok","Krok 3: drop OK",
+        "Podstawy ustawione. Jeśli chcesz, dodamy tryb TYŁ (druga kamera) w kolejnym etapie.");
+      return;
     }
   }
 
-  rafId = requestAnimationFrame(camLoop);
-}
+  // ---------- MediaPipe Pose ----------
+  let camera = null;
+  let pose = null;
+  let running = false;
 
-/* =========================
-   DEMO loop (offline)
-   ========================= */
+  function resizeOverlay(){
+    const w = video.videoWidth || 1280;
+    const h = video.videoHeight || 720;
+    overlay.width = w;
+    overlay.height = h;
+  }
 
-let demoRaf = null;
-function startDemoLoop(){
-  stopDemoLoop();
-  const loop = (t)=>{
-    // side
-    let sp=null, rp=null;
-    if(demoMode===1) sp = demoSideNeutral();
-    if(demoMode===2) sp = demoSideBadReach();
-    if(demoMode===3) sp = demoSideRocking(t/1000);
+  function lm(landmarks, idx){
+    const p = landmarks[idx];
+    if(!p) return null;
+    return { x: p.x*overlay.width, y: p.y*overlay.height, v: p.visibility ?? 0 };
+  }
 
-    if(demoMode===1) rp = demoRearNeutral();
-    if(demoMode===2) rp = demoRearDrift(t/1000);
-    if(demoMode===3) rp = demoRearKneeOut(t/1000);
+  function stabilityScore(landmarks){
+    // średnia widoczność kluczowych punktów z boku
+    const need = [11,12,23,24,25,26,27,28,13,14,15,16]; // shoulders/hips/knees/ankles/elbows/wrists
+    let sum=0, n=0;
+    for(const i of need){
+      const v = landmarks[i]?.visibility;
+      if(typeof v === "number"){ sum += v; n++; }
+    }
+    const s = n ? (sum/n) : 0;
+    return s; // 0..1
+  }
 
-    // scale to canvas
-    resizeCanvasToDisplaySize(els.sideCanvas);
-    resizeCanvasToDisplaySize(els.rearCanvas);
+  function pickSideLandmarks(landmarks){
+    // wybierz lepszą stronę (większa widoczność: hip/knee/ankle)
+    const left = (landmarks[23]?.visibility||0) + (landmarks[25]?.visibility||0) + (landmarks[27]?.visibility||0);
+    const right= (landmarks[24]?.visibility||0) + (landmarks[26]?.visibility||0) + (landmarks[28]?.visibility||0);
+    return (right > left) ? "right" : "left";
+  }
 
-    const sx = els.sideCanvas.width/800, sy = els.sideCanvas.height/600;
-    const scaledSide = {};
-    for(const k of Object.keys(sp)){ scaledSide[k] = {x: sp[k].x*sx, y: sp[k].y*sy}; }
+  function computeAngles(landmarks){
+    const side = pickSideLandmarks(landmarks);
 
-    const rx = els.rearCanvas.width/800, ry = els.rearCanvas.height/600;
-    const scaledRear = {};
-    for(const k of Object.keys(rp)){ scaledRear[k] = {x: rp[k].x*rx, y: rp[k].y*ry}; }
+    // indices:
+    // left: shoulder11 elbow13 wrist15 hip23 knee25 ankle27
+    // right: shoulder12 elbow14 wrist16 hip24 knee26 ankle28
+    const idx = (side==="right")
+      ? {sh:12, el:14, wr:16, hip:24, knee:26, an:28}
+      : {sh:11, el:13, wr:15, hip:23, knee:25, an:27};
 
-    lastSide = {role:"side", points: scaledSide};
-    lastRear = {role:"rear", points: scaledRear};
+    const hip = lm(landmarks, idx.hip);
+    const knee = lm(landmarks, idx.knee);
+    const an  = lm(landmarks, idx.an);
 
-    setDot(els.sideDot,"ok");
-    setDot(els.rearDot,"ok");
-    els.sideSrc.textContent = "DEMO";
-    els.rearSrc.textContent = "DEMO";
+    const sh  = lm(landmarks, idx.sh);
+    const el  = lm(landmarks, idx.el);
+    const wr  = lm(landmarks, idx.wr);
 
-    clearAndDraw(sideCtx, els.sideCanvas, scaledSide);
-    clearAndDraw(rearCtx, els.rearCanvas, scaledRear);
+    // knee angle
+    const kneeAng = angleABC(hip, knee, an);
 
-    els.sidePre.textContent = JSON.stringify({points: scaledSide}, null, 2);
-    els.rearPre.textContent = JSON.stringify({points: scaledRear}, null, 2);
+    // elbow: shoulder-elbow-wrist
+    const elbowAng = angleABC(sh, el, wr);
 
-    updateMetrics();
-    demoRaf = requestAnimationFrame(loop);
-  };
-  demoRaf = requestAnimationFrame(loop);
-}
+    // torso angle approx: angle between (shoulder->hip) vector and horizontal
+    let torsoAng = NaN;
+    if(sh && hip){
+      const vx = hip.x - sh.x;
+      const vy = hip.y - sh.y;
+      // angle to horizontal axis
+      torsoAng = Math.abs(Math.atan2(vy, vx) * 180/Math.PI);
+      // normalize to 0..90-ish
+      if(torsoAng > 90) torsoAng = 180 - torsoAng;
+    }
 
-function stopDemoLoop(){
-  if(demoRaf) cancelAnimationFrame(demoRaf);
-  demoRaf = null;
-}
+    return { side, knee:kneeAng, elbow:elbowAng, torso:torsoAng };
+  }
 
-/* =========================
-   Safety: auto-stop camera on mode change
-   ========================= */
-els.mode.addEventListener("change", ()=>{
-  const m = currentMode();
-  applyModeUI();
-  if(m==="demo"){
-    stopCamera();
-    stopWS();
-    startDemoLoop();
-  }else{
-    stopDemoLoop();
-    if(m==="hub"){
-      stopCamera();
+  function draw(landmarks){
+    ctx.clearRect(0,0,overlay.width, overlay.height);
+
+    // draw video frame is handled by camera/video element itself; overlay only draws points/lines
+    // draw connectors for clarity
+    const conns = [
+      [11,13],[13,15],
+      [12,14],[14,16],
+      [11,23],[12,24],
+      [23,25],[25,27],
+      [24,26],[26,28],
+      [23,24],[11,12]
+    ];
+
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255,255,255,.7)";
+    ctx.fillStyle = "rgba(255,255,255,.8)";
+    ctx.font = "18px system-ui";
+
+    // connectors
+    for(const [a,b] of conns){
+      const pa = lm(landmarks, a);
+      const pb = lm(landmarks, b);
+      if(!pa || !pb) continue;
+      ctx.beginPath();
+      ctx.moveTo(pa.x, pa.y);
+      ctx.lineTo(pb.x, pb.y);
+      ctx.stroke();
+    }
+
+    // points
+    for(let i=0;i<landmarks.length;i++){
+      const p = lm(landmarks, i);
+      if(!p) continue;
+      if((landmarks[i].visibility ?? 0) < 0.2) continue;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
+      ctx.fill();
     }
   }
-});
 
-// default start in HUB
-setWsState("OFFLINE");
-updateMetrics();
+  function fmt(v){
+    return Number.isFinite(v) ? `${v.toFixed(1)}°` : "—";
+  }
 
-  </script>
+  pose = new Pose.Pose({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+  });
+
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    smoothSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+
+  pose.onResults((res) => {
+    if(!running) return;
+    if(!res.poseLandmarks){
+      setCoach("warn","Brak sylwetki w kadrze","Ustaw kamerę tak, aby widać było całego rowerzystę.");
+      setStatus("NO POSE");
+      return;
+    }
+
+    resizeOverlay();
+    draw(res.poseLandmarks);
+
+    const stab = stabilityScore(res.poseLandmarks);
+    confWin.push(stab);
+
+    const a = computeAngles(res.poseLandmarks);
+    kneeWin.push(a.knee);
+    elbowWin.push(a.elbow);
+    torsoWin.push(a.torso);
+
+    const knee = kneeWin.mean();
+    const elbow = elbowWin.mean();
+    const torso = torsoWin.mean();
+    const stability = confWin.mean();
+
+    kneeOut.textContent = fmt(knee);
+    elbowOut.textContent = fmt(elbow);
+    torsoOut.textContent = fmt(torso);
+    stabOut.textContent = Number.isFinite(stability) ? stability.toFixed(2) : "—";
+
+    setStatus("LIVE");
+
+    if(stepModeEl.value === "guided"){
+      guidedCoach(knee, elbow, torso, stability);
+    } else {
+      liveCoach(knee, elbow, torso, stability);
+    }
+  });
+
+  async function start(){
+    if(running) return;
+    try{
+      setCoach("warn","Uruchamiam kamerę…","Zezwól na dostęp do kamery, jeśli przeglądarka zapyta.");
+      setStatus("STARTING");
+      running = true;
+
+      camera = new CameraUtils.Camera(video, {
+        onFrame: async () => {
+          if(!running) return;
+          await pose.send({image: video});
+        },
+        width: 1280,
+        height: 720
+      });
+
+      await camera.start();
+      setStatus("LIVE");
+      setCoach("warn","LIVE – zbieram stabilne wartości","Jedź stabilnie 10–15 sekund, potem podam wskazówki.");
+    }catch(e){
+      running = false;
+      setStatus("ERROR");
+      setCoach("bad","Błąd kamery", String(e && e.message ? e.message : e));
+    }
+  }
+
+  function stop(){
+    running = false;
+    try{ camera && camera.stop(); }catch(e){}
+    camera = null;
+    setStatus("OFF");
+    kneeOut.textContent = "—";
+    elbowOut.textContent = "—";
+    torsoOut.textContent = "—";
+    stabOut.textContent = "—";
+    kneeWin.push(NaN); elbowWin.push(NaN); torsoWin.push(NaN); confWin.push(NaN);
+    ctx.clearRect(0,0,overlay.width, overlay.height);
+    setCoach("warn","Zatrzymano","Kliknij “Start kamery”, aby wrócić do LIVE.");
+  }
+
+  btnStart.addEventListener("click", start);
+  btnStop.addEventListener("click", stop);
+
+  // PWA SW register
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch(()=>{});
+    });
+  }
+
+})();
+</script>
 </body>
 </html>
