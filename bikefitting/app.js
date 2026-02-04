@@ -34,7 +34,7 @@ let session = loadSession();
 function saveSession(){
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   updateBadge();
-  updatePresetUI(); // <— DODANE: odśwież presety gdy zapisujemy zmiany
+  updatePresetUI();
 }
 
 function uuid(){
@@ -74,14 +74,13 @@ function updateBadge(){
   b.textContent = txt;
 }
 
-/* ===== PRESETY (UI w kroku "Bike / Dyscyplina") ===== */
+/* ===== PRESETY UI ===== */
 function fmtRange(r){
   if(!r || r.length !== 2) return "—";
   return `${r[0]}–${r[1]}°`;
 }
 
 function updatePresetUI(){
-  // Elementy mogą nie istnieć w innych krokach — zabezpieczenie
   const kneeEl  = $("rangeKnee");
   const elbowEl = $("rangeElbow");
   const torsoEl = $("rangeTorso");
@@ -89,7 +88,6 @@ function updatePresetUI(){
 
   if(!kneeEl && !elbowEl && !torsoEl && !hintEl) return;
 
-  // używamy funkcji presets() z presets.js
   const p = presets(session.bike.discipline, session.bike.goal);
 
   if(kneeEl)  kneeEl.textContent  = fmtRange(p.knee);
@@ -97,11 +95,10 @@ function updatePresetUI(){
   if(torsoEl) torsoEl.textContent = fmtRange(p.torso);
 
   if(hintEl){
-    hintEl.textContent =
-      `Preset aktywny: ${toLabelDiscipline(session.bike.discipline)} / ${toLabelGoal(session.bike.goal)}.`;
+    hintEl.textContent = `Preset aktywny: ${toLabelDiscipline(session.bike.discipline)} / ${toLabelGoal(session.bike.goal)}.`;
   }
 
-  // global na później (instruktor/PRO)
+  // global na przyszłość (PRO / druga kamera)
   window.BIKEFIT_PRESET = p;
 }
 /* ===== KONIEC PRESETÓW ===== */
@@ -129,7 +126,6 @@ function showStep(id){
   updateBadge();
 
   if(id==="bike"){
-    // odśwież presety przy wejściu do kroku Bike
     updatePresetUI();
   }
 
@@ -163,15 +159,14 @@ function bindInputs(){
 
   $("discipline").addEventListener("change", () => {
     session.bike.discipline = $("discipline").value;
-    saveSession(); // odświeży presety + badge
+    saveSession();
   });
 
   $("goal").addEventListener("change", () => {
     session.bike.goal = $("goal").value;
-    saveSession(); // odświeży presety + badge
+    saveSession();
   });
 
-  // na start też wypełnij presety
   updatePresetUI();
 }
 
@@ -190,11 +185,23 @@ const hintTitle = $("hintTitle");
 const hintText = $("hintText");
 const debugEl = $("debug");
 
+// 🔥 NOWE: pamiętamy ostatnią podpowiedź instruktora (żeby zapisać ją do pomiaru)
+let lastInstructor = { title: "", text: "", ts: 0 };
+
 function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
+
 function setHint(title, text){
   hintTitle.textContent = title;
   hintText.textContent = text;
+
+  // zapamiętujemy dla snapshotu (PRZED/PO)
+  lastInstructor = {
+    title: String(title || ""),
+    text: String(text || ""),
+    ts: Date.now()
+  };
 }
+
 function setKpi(which, val){
   if(which==="knee") $("kneeVal").textContent = val;
   if(which==="elbow") $("elbowVal").textContent = val;
@@ -227,22 +234,44 @@ $("saveShot").addEventListener("click", () => {
     alert("Nie mam danych do zapisania. Uruchom kamerę i poczekaj aż pojawią się punkty.");
     return;
   }
+
   const img = live.snapshot();
   const label = suggestLabel();
   const ts = Date.now();
+
+  // zapisujemy też preset użyty w tym momencie
+  const p = presets(session.bike.discipline, session.bike.goal);
 
   session.measurements.push({
     id: uuid(),
     ts,
     label,
+
     discipline: session.bike.discipline,
     goal: session.bike.goal,
+
+    // kąty
     knee: m.knee,
     elbow: m.elbow,
     torso: m.torso,
     stab: m.stab,
-    imgDataUrl: img
+
+    // snapshot obrazu
+    imgDataUrl: img,
+
+    // 🔥 NOWE: instruktor przy tym pomiarze
+    instructorTitle: lastInstructor.title || "",
+    instructorText: lastInstructor.text || "",
+    instructorAt: lastInstructor.ts || ts,
+
+    // 🔥 NOWE: progi/preset dla tego pomiaru (żeby raport był spójny nawet po zmianie celu)
+    preset: {
+      knee: p.knee,
+      elbow: p.elbow,
+      torso: p.torso
+    }
   });
+
   saveSession();
   alert("Zapisano pomiar: " + label);
 });
