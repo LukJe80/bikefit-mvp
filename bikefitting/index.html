@@ -39,13 +39,28 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
 
     .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px}
     .card h2{margin:0 0 8px 0;font-size:14px}
-    .videoWrap{position:relative;border-radius:14px;overflow:hidden;background:#000;border:1px solid var(--border)}
-    video,canvas{display:block;width:100%;height:auto}
-    canvas{position:absolute;left:0;top:0}
-    .hint{color:var(--muted);font-size:12px;line-height:1.35}
-    .big{
-      font-size:18px;font-weight:800;margin:6px 0 8px 0
+
+    /* ✅ klucz: normalny podgląd, bez "mega szeroko" */
+    .videoWrap{
+      position:relative;
+      border-radius:14px;
+      overflow:hidden;
+      background:#000;
+      border:1px solid var(--border);
+      aspect-ratio: 16 / 9;
+      width:100%;
+      max-height: 62vh;
     }
+    video,canvas{
+      position:absolute; left:0; top:0;
+      width:100%; height:100%;
+      display:block;
+    }
+    video{ object-fit: contain; background:#000; }
+    canvas{ pointer-events:none; }
+
+    .hint{color:var(--muted);font-size:12px;line-height:1.35}
+    .big{ font-size:18px;font-weight:800;margin:6px 0 8px 0 }
     .coachBox{
       border:1px solid #2a2a2f;border-radius:14px;padding:12px;background:#101014
     }
@@ -59,6 +74,18 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     .m .v{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:16px;margin-top:4px}
     .mini{font-size:12px;color:var(--muted)}
     .line{height:1px;background:#26262a;margin:10px 0}
+
+    .dbg{
+      margin-top:10px;
+      border:1px solid #2a2a2f;
+      background:#0f0f11;
+      border-radius:12px;
+      padding:10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+      font-size:12px;
+      color:#c7c7c7;
+      white-space:pre-wrap;
+    }
   </style>
 </head>
 <body>
@@ -66,16 +93,6 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
   <h1>Bikefit LIVE – Instruktor (PWA) • 1 kamera (bok)</h1>
   <div class="row">
     <button id="logoutBtn" style="margin-left:8px;">Wyloguj</button>
-
-<script>
-  const b = document.getElementById("logoutBtn");
-  if(b){
-    b.addEventListener("click", ()=>{
-      localStorage.removeItem("bikefit_auth");
-      window.location.href = "/";
-    });
-  }
-</script>
     <button id="btnStart">Start kamery</button>
     <button id="btnStop">Stop</button>
 
@@ -125,7 +142,7 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
       <canvas id="overlay"></canvas>
     </div>
     <div class="mini" style="margin-top:8px">
-      Jeśli obraz jest czarny: sprawdź uprawnienia kamery w przeglądarce / systemie.
+      Jeśli obraz jest czarny: sprawdź uprawnienia kamery w Chrome (ikona kłódki) i czy żadna inna aplikacja nie używa kamery.
     </div>
   </section>
 
@@ -164,16 +181,15 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     </div>
 
     <div class="line"></div>
+
     <div class="hint">
-      <b>Instruktor krok po kroku</b> (tryb Guided) działa tak:
-      wybiera 1 temat → daje zmianę (np. 3–5 mm) → czeka aż ustabilizujesz jazdę → ocenia czy jest lepiej.
+      <b>Debug</b> (jakby coś znów było czarne): tu pokaże się realny błąd z przeglądarki.
     </div>
+    <div id="dbg" class="dbg">DBG: gotowe.</div>
   </section>
 </main>
 
 <!-- MediaPipe Pose (CDN) -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
 
 <script>
@@ -186,10 +202,9 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
   const btnStart = document.getElementById("btnStart");
   const btnStop  = document.getElementById("btnStop");
   const statusEl = document.getElementById("status");
-
-  const goalEl = document.getElementById("goal");
-  const styleEl = document.getElementById("style");
   const stepModeEl = document.getElementById("stepMode");
+  const styleEl = document.getElementById("style");
+  const goalEl = document.getElementById("goal");
 
   const kneeOut = document.getElementById("kneeOut");
   const elbowOut = document.getElementById("elbowOut");
@@ -199,14 +214,33 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
   const coachBox = document.getElementById("coach");
   const coachTitle = document.getElementById("coachTitle");
   const coachText = document.getElementById("coachText");
+  const dbg = document.getElementById("dbg");
+
+  function logDBG(msg){
+    dbg.textContent = "DBG: " + msg;
+  }
+
+  const logoutBtn = document.getElementById("logoutBtn");
+  if(logoutBtn){
+    logoutBtn.addEventListener("click", ()=>{
+      localStorage.removeItem("bikefit_auth");
+      window.location.href = "/";
+    });
+  }
 
   function setStatus(txt){ statusEl.textContent = txt; }
+
+  function setCoach(level, title, text){
+    coachBox.classList.remove("ok","warn","bad");
+    coachBox.classList.add(level);
+    coachTitle.textContent = title;
+    coachText.textContent = text;
+  }
 
   // ---------- Math helpers ----------
   function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
 
   function angleABC(a,b,c){
-    // angle at b from points a-b-c (in degrees)
     if(!a||!b||!c) return NaN;
     const ab = {x:a.x-b.x, y:a.y-b.y};
     const cb = {x:c.x-b.x, y:c.y-b.y};
@@ -218,7 +252,6 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     return Math.acos(v) * 180 / Math.PI;
   }
 
-  // ---------- Rolling windows (stabilność + uśrednianie) ----------
   function rolling(n){
     const arr = [];
     return {
@@ -227,34 +260,23 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
         const ok = arr.filter(x => Number.isFinite(x));
         if(!ok.length) return NaN;
         return ok.reduce((a,b)=>a+b,0)/ok.length;
-      },
-      std(){
-        const m = this.mean();
-        if(!Number.isFinite(m)) return NaN;
-        const ok = arr.filter(x => Number.isFinite(x));
-        const v = ok.reduce((a,b)=>a+(b-m)*(b-m),0)/ok.length;
-        return Math.sqrt(v);
-      },
-      last(){ return arr.length?arr[arr.length-1]:NaN; },
-      size(){ return arr.length; }
+      }
     };
   }
 
-  const kneeWin = rolling(45);   // ok. ~1.5s przy 30fps
+  const kneeWin = rolling(45);
   const elbowWin = rolling(45);
   const torsoWin = rolling(45);
   const confWin = rolling(45);
 
-  // ---------- Coach targets (proste, stabilne na MVP) ----------
+  // ---------- Targets ----------
   function targets(){
     const style = styleEl.value;
     const goal = goalEl.value;
 
-    // Zakresy są celowo "bezpieczne" (nie ekstremalne).
-    // To MVP – dopracujemy po testach.
-    let knee = [140, 155]; // (większy = bardziej wyprostowane)
+    let knee = [140, 155];
     let elbow = [145, 170];
-    let torso = [35, 55];  // im mniejszy, tym bardziej aero (przybliżenie)
+    let torso = [35, 55];
 
     if(style === "mtb"){
       knee = [138, 153];
@@ -277,36 +299,19 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     return { knee, elbow, torso };
   }
 
-  // ---------- Guided step state ----------
-  const guided = {
-    step: 0, // 0=setup, 1=siodlo, 2=reach, 3=drop
-    lockUntilStable: false,
-    lastAdviceAt: 0
-  };
-
-  function setCoach(level, title, text){
-    coachBox.classList.remove("ok","warn","bad");
-    coachBox.classList.add(level);
-    coachTitle.textContent = title;
-    coachText.textContent = text;
-  }
-
   function mmStepText(){
-    // małe kroki (bezpieczne)
-    return "Zmieniaj małymi krokami: 3–5 mm i ponownie oceń po ~10–20 obrotach.";
+    return "Zmieniaj małymi krokami: 3–5 mm i oceń po ~10–20 obrotach.";
   }
 
   function liveCoach(knee, elbow, torso, stability){
     const t = targets();
 
-    // jeśli niski confidence / niestabilnie:
     if(stability < 0.55){
       setCoach("warn","Ustaw kadr i światło",
-        "Nie łapię stabilnie punktów. Ustaw kamerę bokiem, doświetl, pokaż biodro–kolano–kostkę. Potem wróć do pedałowania.");
+        "Nie łapię stabilnie punktów. Ustaw kamerę bokiem, doświetl, pokaż biodro–kolano–kostka. Potem wróć do pedałowania.");
       return;
     }
 
-    // priorytet: siodło (kolano)
     if(Number.isFinite(knee)){
       if(knee > t.knee[1]){
         setCoach("bad","Kolano zbyt wyprostowane",
@@ -320,7 +325,6 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
       }
     }
 
-    // reach (łokieć)
     if(Number.isFinite(elbow)){
       if(elbow > t.elbow[1]){
         setCoach("warn","Możliwie za duży reach",
@@ -334,7 +338,6 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
       }
     }
 
-    // drop / tułów
     if(Number.isFinite(torso)){
       if(torso > t.torso[1]){
         setCoach("warn","Tułów zbyt pionowo",
@@ -349,103 +352,27 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     }
 
     setCoach("ok","Wygląda dobrze (LIVE)",
-      "Kąty są w bezpiecznym zakresie. Jeśli chcesz, przełącz tryb na „Instruktor krok po kroku”, a poprowadzę zmiany 1 po 1.");
-  }
-
-  function guidedCoach(knee, elbow, torso, stability){
-    const t = targets();
-
-    if(stability < 0.55){
-      setCoach("warn","Krok 0: ustaw kadr",
-        "Ustaw kamerę bokiem: biodro–kolano–kostka w kadrze. Doświetl. Wróć do pedałowania.");
-      guided.step = 0;
-      return;
-    }
-
-    // uśrednione wartości
-    const km = knee;
-    const em = elbow;
-    const tm = torso;
-
-    if(guided.step === 0){
-      setCoach("warn","Krok 1: siodło (wysokość)",
-        "Jedź stabilnie 10–15 s. Potem pokażę, czy podnieść/obniżyć siodło.");
-      guided.step = 1;
-      return;
-    }
-
-    if(guided.step === 1){
-      if(!Number.isFinite(km)){
-        setCoach("warn","Krok 1: brak kąta kolana",
-          "Nie widzę punktów nogi. Pokaż biodro–kolano–kostkę.");
-        return;
-      }
-      if(km > t.knee[1]){
-        setCoach("bad","Krok 1: obniż siodło",
-          `Kąt kolana ~ ${km.toFixed(1)}° (za duży). Obniż siodło o 3–5 mm i jedź 10–20 obrotów, aż wartości się ustabilizują.`);
-        return;
-      }
-      if(km < t.knee[0]){
-        setCoach("bad","Krok 1: podnieś siodło",
-          `Kąt kolana ~ ${km.toFixed(1)}° (za mały). Podnieś siodło o 3–5 mm i jedź 10–20 obrotów.`);
-        return;
-      }
-      setCoach("ok","Krok 1: siodło OK",
-        `Kolano ~ ${km.toFixed(1)}° w zakresie. Przechodzimy do reach (mostek).`);
-      guided.step = 2;
-      return;
-    }
-
-    if(guided.step === 2){
-      if(!Number.isFinite(em)){
-        setCoach("warn","Krok 2: brak kąta łokcia",
-          "Nie widzę dobrze ręki. Spróbuj tak, by bark–łokieć–nadgarstek były w kadrze.");
-        return;
-      }
-      if(em > t.elbow[1]){
-        setCoach("warn","Krok 2: skróć reach",
-          `Łokieć ~ ${em.toFixed(1)}° (za prosto). Test: mostek -10 mm albo 5–10 mm wyżej kokpit (jedno naraz).`);
-        return;
-      }
-      if(em < t.elbow[0]){
-        setCoach("warn","Krok 2: wydłuż reach",
-          `Łokieć ~ ${em.toFixed(1)}° (za ugięty). Test: mostek +10 mm lub bardziej „do przodu” chwyt.`);
-        return;
-      }
-      setCoach("ok","Krok 2: reach OK",
-        `Łokieć ~ ${em.toFixed(1)}° w zakresie. Przechodzimy do tułowia (drop).`);
-      guided.step = 3;
-      return;
-    }
-
-    if(guided.step === 3){
-      if(!Number.isFinite(tm)){
-        setCoach("warn","Krok 3: brak kąta tułowia",
-          "Nie widzę stabilnie barku i biodra. Popraw kadr.");
-        return;
-      }
-      if(tm > t.torso[1]){
-        setCoach("warn","Krok 3: tułów zbyt wysoko",
-          `Tułów ~ ${tm.toFixed(1)}°. Jeśli chcesz bardziej aero: obniż kokpit o 5 mm i ponownie oceń.`);
-        return;
-      }
-      if(tm < t.torso[0]){
-        setCoach("warn","Krok 3: tułów bardzo nisko",
-          `Tułów ~ ${tm.toFixed(1)}°. Jeśli czujesz napięcie: podnieś kokpit 5–10 mm.`);
-        return;
-      }
-      setCoach("ok","Krok 3: drop OK",
-        "Podstawy ustawione. Jeśli chcesz, dodamy tryb TYŁ (druga kamera) w kolejnym etapie.");
-      return;
-    }
+      "Kąty są w bezpiecznym zakresie. Jeśli chcesz, przełącz tryb na „Instruktor krok po kroku” (kolejny etap dopracujemy).");
   }
 
   // ---------- MediaPipe Pose ----------
-  let camera = null;
-  let pose = null;
-  let running = false;
+  const pose = new Pose.Pose({
+    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+  });
 
-  function resizeOverlay(){
+  pose.setOptions({
+    modelComplexity: 1,
+    smoothLandmarks: true,
+    enableSegmentation: false,
+    minDetectionConfidence: 0.5,
+    minTrackingConfidence: 0.5
+  });
+
+  let stream = null;
+  let running = false;
+  let pumping = false;
+
+  function resizeCanvasToVideo(){
     const w = video.videoWidth || 1280;
     const h = video.videoHeight || 720;
     overlay.width = w;
@@ -459,19 +386,16 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
   }
 
   function stabilityScore(landmarks){
-    // średnia widoczność kluczowych punktów z boku
-    const need = [11,12,23,24,25,26,27,28,13,14,15,16]; // shoulders/hips/knees/ankles/elbows/wrists
+    const need = [11,12,23,24,25,26,27,28,13,14,15,16];
     let sum=0, n=0;
     for(const i of need){
       const v = landmarks[i]?.visibility;
       if(typeof v === "number"){ sum += v; n++; }
     }
-    const s = n ? (sum/n) : 0;
-    return s; // 0..1
+    return n ? (sum/n) : 0;
   }
 
   function pickSideLandmarks(landmarks){
-    // wybierz lepszą stronę (większa widoczność: hip/knee/ankle)
     const left = (landmarks[23]?.visibility||0) + (landmarks[25]?.visibility||0) + (landmarks[27]?.visibility||0);
     const right= (landmarks[24]?.visibility||0) + (landmarks[26]?.visibility||0) + (landmarks[28]?.visibility||0);
     return (right > left) ? "right" : "left";
@@ -479,10 +403,6 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
 
   function computeAngles(landmarks){
     const side = pickSideLandmarks(landmarks);
-
-    // indices:
-    // left: shoulder11 elbow13 wrist15 hip23 knee25 ankle27
-    // right: shoulder12 elbow14 wrist16 hip24 knee26 ankle28
     const idx = (side==="right")
       ? {sh:12, el:14, wr:16, hip:24, knee:26, an:28}
       : {sh:11, el:13, wr:15, hip:23, knee:25, an:27};
@@ -490,36 +410,26 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     const hip = lm(landmarks, idx.hip);
     const knee = lm(landmarks, idx.knee);
     const an  = lm(landmarks, idx.an);
-
     const sh  = lm(landmarks, idx.sh);
     const el  = lm(landmarks, idx.el);
     const wr  = lm(landmarks, idx.wr);
 
-    // knee angle
     const kneeAng = angleABC(hip, knee, an);
-
-    // elbow: shoulder-elbow-wrist
     const elbowAng = angleABC(sh, el, wr);
 
-    // torso angle approx: angle between (shoulder->hip) vector and horizontal
     let torsoAng = NaN;
     if(sh && hip){
       const vx = hip.x - sh.x;
       const vy = hip.y - sh.y;
-      // angle to horizontal axis
       torsoAng = Math.abs(Math.atan2(vy, vx) * 180/Math.PI);
-      // normalize to 0..90-ish
       if(torsoAng > 90) torsoAng = 180 - torsoAng;
     }
-
-    return { side, knee:kneeAng, elbow:elbowAng, torso:torsoAng };
+    return { knee:kneeAng, elbow:elbowAng, torso:torsoAng };
   }
 
   function draw(landmarks){
     ctx.clearRect(0,0,overlay.width, overlay.height);
 
-    // draw video frame is handled by camera/video element itself; overlay only draws points/lines
-    // draw connectors for clarity
     const conns = [
       [11,13],[13,15],
       [12,14],[14,16],
@@ -531,10 +441,8 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
 
     ctx.lineWidth = 3;
     ctx.strokeStyle = "rgba(255,255,255,.7)";
-    ctx.fillStyle = "rgba(255,255,255,.8)";
-    ctx.font = "18px system-ui";
+    ctx.fillStyle = "rgba(255,255,255,.85)";
 
-    // connectors
     for(const [a,b] of conns){
       const pa = lm(landmarks, a);
       const pb = lm(landmarks, b);
@@ -545,7 +453,6 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
       ctx.stroke();
     }
 
-    // points
     for(let i=0;i<landmarks.length;i++){
       const p = lm(landmarks, i);
       if(!p) continue;
@@ -556,32 +463,18 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     }
   }
 
-  function fmt(v){
-    return Number.isFinite(v) ? `${v.toFixed(1)}°` : "—";
-  }
-
-  pose = new Pose.Pose({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-  });
-
-  pose.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    smoothSegmentation: false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
+  function fmt(v){ return Number.isFinite(v) ? `${v.toFixed(1)}°` : "—"; }
 
   pose.onResults((res) => {
     if(!running) return;
+
     if(!res.poseLandmarks){
-      setCoach("warn","Brak sylwetki w kadrze","Ustaw kamerę tak, aby widać było całego rowerzystę.");
       setStatus("NO POSE");
+      setCoach("warn","Brak sylwetki w kadrze","Ustaw kamerę tak, aby widać było rowerzystę z boku.");
       return;
     }
 
-    resizeOverlay();
+    resizeCanvasToVideo();
     draw(res.poseLandmarks);
 
     const stab = stabilityScore(res.poseLandmarks);
@@ -603,58 +496,103 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     stabOut.textContent = Number.isFinite(stability) ? stability.toFixed(2) : "—";
 
     setStatus("LIVE");
-
-    if(stepModeEl.value === "guided"){
-      guidedCoach(knee, elbow, torso, stability);
-    } else {
-      liveCoach(knee, elbow, torso, stability);
-    }
+    liveCoach(knee, elbow, torso, stability);
   });
 
-  async function start(){
-    if(running) return;
+  async function pumpFrames(){
+    if(pumping) return;
+    pumping = true;
     try{
-      setCoach("warn","Uruchamiam kamerę…","Zezwól na dostęp do kamery, jeśli przeglądarka zapyta.");
-      setStatus("STARTING");
-      running = true;
-
-      camera = new CameraUtils.Camera(video, {
-        onFrame: async () => {
-          if(!running) return;
-          await pose.send({image: video});
-        },
-        width: 1280,
-        height: 720
-      });
-
-      await camera.start();
-      setStatus("LIVE");
-      setCoach("warn","LIVE – zbieram stabilne wartości","Jedź stabilnie 10–15 sekund, potem podam wskazówki.");
-    }catch(e){
-      running = false;
-      setStatus("ERROR");
-      setCoach("bad","Błąd kamery", String(e && e.message ? e.message : e));
+      while(running){
+        await pose.send({image: video});
+        await new Promise(r => requestAnimationFrame(r));
+      }
+    } finally {
+      pumping = false;
     }
   }
 
-  function stop(){
+  async function start(){
+    if(running) return;
+    setStatus("STARTING");
+    setCoach("warn","Uruchamiam kamerę…","Zezwól na dostęp do kamery, jeśli przeglądarka zapyta.");
+    logDBG("Start...");
+
+    try{
+      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+        throw new Error("Brak getUserMedia() w tej przeglądarce.");
+      }
+
+      // ✅ stabilne constraints (bez zgadywania deviceId)
+      const constraints = {
+        audio: false,
+        video: {
+          width: { ideal: 1280 },
+          height:{ ideal: 720 },
+          frameRate: { ideal: 30 },
+        }
+      };
+
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
+
+      await new Promise((resolve) => {
+        video.onloadedmetadata = () => resolve();
+      });
+
+      await video.play();
+
+      resizeCanvasToVideo();
+
+      running = true;
+      setStatus("LIVE");
+      setCoach("warn","LIVE – zbieram stabilne wartości","Jedź stabilnie 10–15 sekund, potem podam wskazówki.");
+      logDBG("Kamera OK. videoWidth=" + video.videoWidth + " videoHeight=" + video.videoHeight);
+
+      pumpFrames();
+    }catch(e){
+      running = false;
+      setStatus("ERROR");
+      const msg = String(e && e.message ? e.message : e);
+      setCoach("bad","Błąd kamery", msg);
+      logDBG("ERROR: " + msg + "\n\nJeśli to 'NotAllowedError' -> Chrome zablokował kamerę dla strony.\nJeśli 'NotReadableError' -> kamera zajęta przez inną aplikację.");
+      stop(true);
+    }
+  }
+
+  function stop(silent){
     running = false;
-    try{ camera && camera.stop(); }catch(e){}
-    camera = null;
+
+    try{
+      if(video) video.pause();
+    }catch(e){}
+
+    if(stream){
+      try{
+        stream.getTracks().forEach(t => t.stop());
+      }catch(e){}
+    }
+
+    stream = null;
+    video.srcObject = null;
+
     setStatus("OFF");
     kneeOut.textContent = "—";
     elbowOut.textContent = "—";
     torsoOut.textContent = "—";
     stabOut.textContent = "—";
-    kneeWin.push(NaN); elbowWin.push(NaN); torsoWin.push(NaN); confWin.push(NaN);
     ctx.clearRect(0,0,overlay.width, overlay.height);
-    setCoach("warn","Zatrzymano","Kliknij “Start kamery”, aby wrócić do LIVE.");
+
+    if(!silent){
+      setCoach("warn","Zatrzymano","Kliknij “Start kamery”, aby wrócić do LIVE.");
+      logDBG("Stop.");
+    }
   }
 
   btnStart.addEventListener("click", start);
-  btnStop.addEventListener("click", stop);
+  btnStop.addEventListener("click", () => stop(false));
 
-  // PWA SW register
+  // PWA SW register (zostaje)
   if("serviceWorker" in navigator){
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("/sw.js").catch(()=>{});
@@ -665,5 +603,3 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
 </script>
 </body>
 </html>
-
-
