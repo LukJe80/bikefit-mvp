@@ -1,363 +1,358 @@
-<script>
-if(localStorage.getItem("bikefit_auth") !== "1"){
-  window.location.href = "/";
-}
-</script>
 <!doctype html>
 <html lang="pl">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Bikefit LIVE – Instruktor (PWA)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bikefit LIVE – 1 kamera (bok)</title>
 
   <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#0b0b0c"/>
+  <meta name="theme-color" content="#020617">
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 
   <style>
+    /* ✅ MOTYW 1:1 jak w orders.html */
     :root{
-      --bg:#0b0b0c;
-      --panel:#141416;
-      --border:#26262a;
-      --muted:#9aa0a6;
-      --ok:#2a6a3a;
-      --warn:#6a5a2a;
-      --bad:#6a2a2a;
-      --text:#fff;
+      --accent:#2563eb;
+      --accentHover:#1d4ed8;
+      --bg:#020617;
+      --text:#e5e7eb;
+      --panel: rgba(255,255,255,0.05);
+      --panelBorder: rgba(255,255,255,0.10);
+      --muted: rgba(229,231,235,0.7);
     }
-    body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    header{padding:12px 14px;background:var(--panel);border-bottom:1px solid var(--border)}
-    h1{margin:0 0 8px 0;font-size:16px}
-    .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-    select,input,button{
-      padding:8px 10px;border-radius:10px;border:1px solid #333;background:#0f0f11;color:#fff
+    *{ box-sizing:border-box; }
+
+    body{
+      margin:0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
     }
-    button{cursor:pointer}
-    .pill{display:inline-flex;gap:8px;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #333;background:#0f0f11;font-size:12px}
-    .pill b{font-weight:700}
-    .layout{display:grid;grid-template-columns:1.2fr .8fr;gap:12px;padding:12px}
-    @media (max-width: 1100px){ .layout{grid-template-columns:1fr} }
 
-    .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:12px}
-    .card h2{margin:0 0 8px 0;font-size:14px}
+    .page{ max-width:1280px; margin:0 auto; padding:14px; }
 
-    /* ✅ klucz: normalny podgląd, bez "mega szeroko" */
+    .top{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      justify-content:space-between;
+      margin-bottom:10px;
+    }
+
+    .title{
+      font-size:18px;
+      color:var(--accent);
+      font-weight:900;
+      display:flex;
+      align-items:center;
+      gap:10px;
+    }
+
+    .bar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+
+    .btn{
+      appearance:none;
+      border:1px solid rgba(255,255,255,0.10);
+      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+      color:var(--text);
+      padding:10px 14px;
+      border-radius:14px;
+      cursor:pointer;
+      font-weight:900;
+      transition:.15s ease;
+      user-select:none;
+    }
+    .btn:hover{ transform:translateY(-1px); border-color:rgba(37,99,235,0.45); }
+    .btn.primary{
+      border-color:rgba(37,99,235,0.75);
+      box-shadow:0 0 0 3px rgba(37,99,235,0.18);
+    }
+    .btn.danger:hover{ border-color:rgba(239,68,68,0.55); }
+
+    .pill{
+      padding:8px 12px;
+      border-radius:999px;
+      font-size:12px;
+      font-weight:900;
+      border:1px solid rgba(255,255,255,0.14);
+      background:rgba(0,0,0,0.35);
+      white-space:nowrap;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .dot{ width:10px; height:10px; border-radius:50%; background:#ef4444; }
+    .dot.on{ background:#4ade80; }
+
+    .grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:14px; }
+    @media (max-width: 980px){ .grid{ grid-template-columns:1fr; } }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--panelBorder);
+      border-radius:16px;
+      padding:14px;
+    }
+
+    .h{
+      margin:0 0 10px 0;
+      font-size:14px;
+      font-weight:900;
+      letter-spacing:.3px;
+      text-transform:uppercase;
+      color:#93c5fd;
+    }
+
     .videoWrap{
       position:relative;
+      width:100%;
+      aspect-ratio:16/9;
+      background:#000;
       border-radius:14px;
       overflow:hidden;
-      background:#000;
-      border:1px solid var(--border);
-      aspect-ratio: 16 / 9;
-      width:100%;
-      max-height: 62vh;
+      border:1px solid rgba(255,255,255,0.10);
     }
     video,canvas{
-      position:absolute; left:0; top:0;
+      position:absolute; inset:0;
       width:100%; height:100%;
-      display:block;
+      object-fit:contain;
     }
-    video{ object-fit: contain; background:#000; }
-    canvas{ pointer-events:none; }
 
-    .hint{color:var(--muted);font-size:12px;line-height:1.35}
-    .big{ font-size:18px;font-weight:800;margin:6px 0 8px 0 }
-    .coachBox{
-      border:1px solid #2a2a2f;border-radius:14px;padding:12px;background:#101014
+    .instr{
+      border:1px solid rgba(37,99,235,0.35);
+      background:rgba(37,99,235,0.08);
+      border-radius:14px;
+      padding:14px;
     }
-    .coachBox.ok{border-color:var(--ok)}
-    .coachBox.warn{border-color:var(--warn)}
-    .coachBox.bad{border-color:var(--bad)}
-    .metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
-    @media (max-width: 700px){ .metrics{grid-template-columns:1fr} }
-    .m{border:1px solid #2a2a2f;border-radius:12px;padding:10px;background:#0f0f11}
-    .m .k{color:var(--muted);font-size:12px}
-    .m .v{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;font-size:16px;margin-top:4px}
-    .mini{font-size:12px;color:var(--muted)}
-    .line{height:1px;background:#26262a;margin:10px 0}
-
-    .dbg{
-      margin-top:10px;
-      border:1px solid #2a2a2f;
-      background:#0f0f11;
-      border-radius:12px;
-      padding:10px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;
+    .instr h3{
+      margin:0 0 6px 0;
       font-size:12px;
-      color:#c7c7c7;
+      text-transform:uppercase;
+      letter-spacing:.5px;
+      color:#93c5fd;
+    }
+    .instr .big{ font-size:24px; font-weight:900; margin:0 0 6px 0; color:var(--text); }
+    .small{ color:var(--muted); font-size:13px; line-height:1.35; }
+
+    .kpis{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
+    @media (max-width: 980px){ .kpis{ grid-template-columns:1fr; } }
+    .kpi{ padding:12px; }
+    .kpi .label{ font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#93c5fd; font-weight:900; }
+    .kpi .val{ font-size:26px; font-weight:900; margin-top:6px; }
+    .kpi .desc{ margin-top:6px; color:var(--muted); font-size:13px; }
+
+    .debug{
+      margin-top:10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size:12px;
       white-space:pre-wrap;
+      padding:12px;
     }
   </style>
 </head>
 <body>
-<header>
-  <h1>Bikefit LIVE – Instruktor (PWA) • 1 kamera (bok)</h1>
-  <div class="row">
-    <button id="logoutBtn" style="margin-left:8px;">Wyloguj</button>
-    <button id="btnStart">Start kamery</button>
-    <button id="btnStop">Stop</button>
+<script>
+/* ✅ Gate dostępu: jeśli brak sesji -> wróć do logowania */
+const AUTH_KEY = "bikefit_auth";
+function isAuthed(){
+  try{
+    const raw = localStorage.getItem(AUTH_KEY);
+    if(!raw) return false;
+    const obj = JSON.parse(raw);
+    return obj && obj.exp && obj.exp > Date.now();
+  }catch(e){ return false; }
+}
+if(!isAuthed()){
+  location.replace("/");
+}
+</script>
 
-    <span class="pill">Status: <b id="status">OFF</b></span>
+<div class="page">
+  <div class="top">
+    <div class="title">Bikefit LIVE • 1 kamera (bok)</div>
 
-    <label class="pill">Cel:
-      <select id="goal">
-        <option value="comfort">Komfort</option>
-        <option value="neutral" selected>Neutral</option>
-        <option value="aero">Aero</option>
-      </select>
-    </label>
+    <div class="bar">
+      <button id="logoutBtn" class="btn danger">Wyloguj</button>
+      <button id="startBtn" class="btn primary">Start kamery</button>
+      <button id="stopBtn" class="btn">Stop</button>
 
-    <label class="pill">Dyscyplina:
-      <select id="style">
-        <option value="road" selected>Szosa</option>
-        <option value="gravel">Gravel</option>
-        <option value="mtb">MTB</option>
-      </select>
-    </label>
-
-    <label class="pill">Wzrost (cm):
-      <input id="height" type="number" value="175" style="width:84px"/>
-    </label>
-
-    <label class="pill">Przekrok (cm):
-      <input id="inseam" type="number" value="82" style="width:84px"/>
-    </label>
-
-    <label class="pill">Tryb:
-      <select id="stepMode">
-        <option value="live" selected>LIVE (bez nagrywania)</option>
-        <option value="guided">Instruktor krok po kroku</option>
-      </select>
-    </label>
+      <div class="pill">
+        <span id="dot" class="dot"></span>
+        Status: <span id="status">OFF</span>
+      </div>
+    </div>
   </div>
-  <div class="hint" style="margin-top:8px">
-    Tip: kamera działa najlepiej na <b>HTTPS</b> (Vercel) albo <b>http://localhost</b>. Ustaw laptop bokiem do roweru: widoczne biodro–kolano–kostka.
+
+  <div class="grid">
+    <div class="card">
+      <div class="h">Podgląd + punkty</div>
+
+      <div class="videoWrap">
+        <video id="video" playsinline muted></video>
+        <canvas id="canvas"></canvas>
+      </div>
+
+      <div class="small" style="margin-top:8px">
+        Jeśli obraz czarny: Chrome → kłódka → Kamera: <b>Zezwalaj</b> + zamknij Teams/Zoom/OBS.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="h">Instruktor</div>
+
+      <div class="instr">
+        <h3>Wskazówka</h3>
+        <div id="hintTitle" class="big">Uruchom kamerę</div>
+        <div id="hintText" class="small">Kliknij „Start kamery”.</div>
+      </div>
+
+      <div class="kpis">
+        <div class="card kpi">
+          <div class="label">Kąt kolana</div>
+          <div id="kneeVal" class="val">—</div>
+          <div class="desc">Do oceny wysokości siodła.</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="label">Kąt łokcia</div>
+          <div id="elbowVal" class="val">—</div>
+          <div class="desc">Do oceny reach / mostka.</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="label">Kąt tułowia</div>
+          <div id="torsoVal" class="val">—</div>
+          <div class="desc">Do oceny drop / wysokości kokpitu.</div>
+        </div>
+
+        <div class="card kpi">
+          <div class="label">Stabilność</div>
+          <div id="stabVal" class="val">—</div>
+          <div class="desc">Pewność punktów (widoczność).</div>
+        </div>
+      </div>
+
+      <div class="small" style="margin-top:10px">Debug:</div>
+      <div id="debug" class="card debug">DBG: gotowe.</div>
+    </div>
   </div>
-</header>
-
-<main class="layout">
-  <section class="card">
-    <h2>Podgląd + punkty</h2>
-    <div class="videoWrap">
-      <video id="video" playsinline autoplay muted></video>
-      <canvas id="overlay"></canvas>
-    </div>
-    <div class="mini" style="margin-top:8px">
-      Jeśli obraz jest czarny: sprawdź uprawnienia kamery w Chrome (ikona kłódki) i czy żadna inna aplikacja nie używa kamery.
-    </div>
-  </section>
-
-  <section class="card">
-    <h2>Instruktor</h2>
-
-    <div id="coach" class="coachBox warn">
-      <div class="mini">Wskazówka</div>
-      <div class="big" id="coachTitle">Uruchom kamerę</div>
-      <div id="coachText" class="hint">Kliknij “Start kamery”.</div>
-    </div>
-
-    <div class="line"></div>
-
-    <div class="metrics">
-      <div class="m">
-        <div class="k">Kąt kolana (DMP / dolny zakres)</div>
-        <div class="v" id="kneeOut">—</div>
-        <div class="mini">Najważniejsze do wysokości siodła.</div>
-      </div>
-      <div class="m">
-        <div class="k">Kąt łokcia (przybliżony)</div>
-        <div class="v" id="elbowOut">—</div>
-        <div class="mini">Pomaga ocenić reach / mostek.</div>
-      </div>
-      <div class="m">
-        <div class="k">Kąt tułowia (przybliżony)</div>
-        <div class="v" id="torsoOut">—</div>
-        <div class="mini">Pomaga ocenić drop / wysokość kokpitu.</div>
-      </div>
-      <div class="m">
-        <div class="k">Stabilność (szac.)</div>
-        <div class="v" id="stabOut">—</div>
-        <div class="mini">Wykrywa “szarpanie” / brak pewności punktów.</div>
-      </div>
-    </div>
-
-    <div class="line"></div>
-
-    <div class="hint">
-      <b>Debug</b> (jakby coś znów było czarne): tu pokaże się realny błąd z przeglądarki.
-    </div>
-    <div id="dbg" class="dbg">DBG: gotowe.</div>
-  </section>
-</main>
-
-<!-- MediaPipe Pose (CDN) -->
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+</div>
 
 <script>
-(() => {
-  // ---------- UI ----------
-  const video = document.getElementById("video");
-  const overlay = document.getElementById("overlay");
-  const ctx = overlay.getContext("2d");
+/* ============ Logout (naprawione) ============ */
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  localStorage.removeItem(AUTH_KEY);
+  location.replace("/");
+});
 
-  const btnStart = document.getElementById("btnStart");
-  const btnStop  = document.getElementById("btnStop");
-  const statusEl = document.getElementById("status");
-  const stepModeEl = document.getElementById("stepMode");
-  const styleEl = document.getElementById("style");
-  const goalEl = document.getElementById("goal");
+/* ============ UI helpers ============ */
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+const dotEl = $("dot");
+const debugEl = $("debug");
+const hintTitle = $("hintTitle");
+const hintText = $("hintText");
 
-  const kneeOut = document.getElementById("kneeOut");
-  const elbowOut = document.getElementById("elbowOut");
-  const torsoOut = document.getElementById("torsoOut");
-  const stabOut = document.getElementById("stabOut");
+function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
+function setStatus(txt, on){
+  statusEl.textContent = txt;
+  dotEl.classList.toggle("on", !!on);
+}
+function setHint(title, text){
+  hintTitle.textContent = title;
+  hintText.textContent = text;
+}
 
-  const coachBox = document.getElementById("coach");
-  const coachTitle = document.getElementById("coachTitle");
-  const coachText = document.getElementById("coachText");
-  const dbg = document.getElementById("dbg");
+/* ============ Math helpers ============ */
+function angleABC(a,b,c){
+  const abx=a.x-b.x, aby=a.y-b.y;
+  const cbx=c.x-b.x, cby=c.y-b.y;
+  const dot=abx*cbx+aby*cby;
+  const lab=Math.hypot(abx,aby);
+  const lcb=Math.hypot(cbx,cby);
+  if(lab===0||lcb===0) return null;
+  let cos=dot/(lab*lcb);
+  cos=Math.max(-1,Math.min(1,cos));
+  return Math.acos(cos)*180/Math.PI;
+}
+function fmtDeg(x){ return (x==null||Number.isNaN(x)) ? "—" : (Math.round(x)+"°"); }
 
-  function logDBG(msg){
-    dbg.textContent = "DBG: " + msg;
+/* ============ MediaPipe Pose ============ */
+let camera=null;
+let pose=null;
+let stream=null;
+
+const video=$("video");
+const canvas=$("canvas");
+const ctx=canvas.getContext("2d");
+
+function resizeCanvasToVideo(){
+  const w=video.videoWidth||1280;
+  const h=video.videoHeight||720;
+  canvas.width=w; canvas.height=h;
+}
+
+function draw(results){
+  ctx.save();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  if(results.image){
+    ctx.drawImage(results.image,0,0,canvas.width,canvas.height);
+  }
+  if(results.poseLandmarks){
+    window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS,
+      { color: "rgba(255,255,255,0.35)", lineWidth: 3 });
+    window.drawLandmarks(ctx, results.poseLandmarks,
+      { color: "rgba(255,255,255,0.95)", lineWidth: 2, radius: 4 });
+  }
+  ctx.restore();
+}
+
+function computeMetrics(results){
+  const lm=results.poseLandmarks;
+  if(!lm) return;
+
+  const hip=lm[24], knee=lm[26], ankle=lm[28];
+  const shoulder=lm[12], elbow=lm[14], wrist=lm[16];
+
+  const kneeAng=angleABC(hip,knee,ankle);
+  const elbowAng=angleABC(shoulder,elbow,wrist);
+
+  let torsoAng=null;
+  if(hip && shoulder){
+    const a={x:hip.x, y:hip.y-1};
+    torsoAng=angleABC(a, hip, shoulder);
   }
 
-  const logoutBtn = document.getElementById("logoutBtn");
-  if(logoutBtn){
-    logoutBtn.addEventListener("click", ()=>{
-      localStorage.removeItem("bikefit_auth");
-      window.location.href = "/";
-    });
-  }
+  $("kneeVal").textContent=fmtDeg(kneeAng);
+  $("elbowVal").textContent=fmtDeg(elbowAng);
+  $("torsoVal").textContent=fmtDeg(torsoAng);
 
-  function setStatus(txt){ statusEl.textContent = txt; }
+  const vis=[hip,knee,ankle,shoulder,elbow,wrist].map(p=>p?.visibility??0);
+  const avg=vis.reduce((s,v)=>s+v,0)/vis.length;
+  const stab=Math.round(avg*100);
+  $("stabVal").textContent = (isFinite(stab)?(stab+"%"):"—");
 
-  function setCoach(level, title, text){
-    coachBox.classList.remove("ok","warn","bad");
-    coachBox.classList.add(level);
-    coachTitle.textContent = title;
-    coachText.textContent = text;
-  }
-
-  // ---------- Math helpers ----------
-  function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
-
-  function angleABC(a,b,c){
-    if(!a||!b||!c) return NaN;
-    const ab = {x:a.x-b.x, y:a.y-b.y};
-    const cb = {x:c.x-b.x, y:c.y-b.y};
-    const dot = ab.x*cb.x + ab.y*cb.y;
-    const nab = Math.hypot(ab.x, ab.y);
-    const ncb = Math.hypot(cb.x, cb.y);
-    const cos = dot / (nab*ncb + 1e-9);
-    const v = clamp(cos, -1, 1);
-    return Math.acos(v) * 180 / Math.PI;
-  }
-
-  function rolling(n){
-    const arr = [];
-    return {
-      push(v){ arr.push(v); if(arr.length>n) arr.shift(); },
-      mean(){
-        const ok = arr.filter(x => Number.isFinite(x));
-        if(!ok.length) return NaN;
-        return ok.reduce((a,b)=>a+b,0)/ok.length;
-      }
-    };
-  }
-
-  const kneeWin = rolling(45);
-  const elbowWin = rolling(45);
-  const torsoWin = rolling(45);
-  const confWin = rolling(45);
-
-  // ---------- Targets ----------
-  function targets(){
-    const style = styleEl.value;
-    const goal = goalEl.value;
-
-    let knee = [140, 155];
-    let elbow = [145, 170];
-    let torso = [35, 55];
-
-    if(style === "mtb"){
-      knee = [138, 153];
-      elbow = [150, 175];
-      torso = [40, 65];
-    } else if(style === "gravel"){
-      knee = [139, 154];
-      elbow = [148, 173];
-      torso = [38, 60];
+  if(kneeAng!=null){
+    if(kneeAng < 135){
+      setHint("Kolano za mocno zgięte", "Siodło może być za nisko. Podnieś o 3–5 mm i sprawdź ponownie.");
+    }else if(kneeAng > 155){
+      setHint("Kolano za proste", "Siodło może być za wysoko. Opuść o 3–5 mm i sprawdź ponownie.");
+    }else{
+      setHint("Kąt kolana wygląda OK", "Następnie rozbudujemy instruktor o reach i stabilność.");
     }
-
-    if(goal === "comfort"){
-      elbow = [150, 175];
-      torso = [45, 70];
-    } else if(goal === "aero"){
-      elbow = [140, 165];
-      torso = [30, 50];
-    }
-
-    return { knee, elbow, torso };
   }
+}
 
-  function mmStepText(){
-    return "Zmieniaj małymi krokami: 3–5 mm i oceń po ~10–20 obrotach.";
-  }
-
-  function liveCoach(knee, elbow, torso, stability){
-    const t = targets();
-
-    if(stability < 0.55){
-      setCoach("warn","Ustaw kadr i światło",
-        "Nie łapię stabilnie punktów. Ustaw kamerę bokiem, doświetl, pokaż biodro–kolano–kostka. Potem wróć do pedałowania.");
-      return;
-    }
-
-    if(Number.isFinite(knee)){
-      if(knee > t.knee[1]){
-        setCoach("bad","Kolano zbyt wyprostowane",
-          `Kąt kolana ~ ${knee.toFixed(1)}° (za dużo). Najczęściej siodło jest za wysoko → obniż o 3–5 mm. ${mmStepText()}`);
-        return;
-      }
-      if(knee < t.knee[0]){
-        setCoach("bad","Kolano zbyt ugięte",
-          `Kąt kolana ~ ${knee.toFixed(1)}° (za mało). Najczęściej siodło jest za nisko → podnieś o 3–5 mm. ${mmStepText()}`);
-        return;
-      }
-    }
-
-    if(Number.isFinite(elbow)){
-      if(elbow > t.elbow[1]){
-        setCoach("warn","Możliwie za duży reach",
-          `Łokieć ~ ${elbow.toFixed(1)}° (prawie prosta ręka). Test: krótszy mostek o 10 mm lub 5–10 mm wyżej kokpit.`);
-        return;
-      }
-      if(elbow < t.elbow[0]){
-        setCoach("warn","Możliwie za krótki reach / zbyt “ciasno”",
-          `Łokieć ~ ${elbow.toFixed(1)}° (mocno ugięty). Jeśli nie celujesz w aero: test dłuższy mostek +10 mm lub trochę niżej/ dalej chwyt.`);
-        return;
-      }
-    }
-
-    if(Number.isFinite(torso)){
-      if(torso > t.torso[1]){
-        setCoach("warn","Tułów zbyt pionowo",
-          `Tułów ~ ${torso.toFixed(1)}° (wysoko). Jeśli chcesz bardziej aero: niżej kokpit (5 mm) lub dłuższy mostek (10 mm) – jedna zmiana naraz.`);
-        return;
-      }
-      if(torso < t.torso[0]){
-        setCoach("warn","Tułów bardzo nisko",
-          `Tułów ~ ${torso.toFixed(1)}° (nisko). Jeśli czujesz napięcia: podnieś kokpit 5–10 mm (podkładka / mostek).`);
-        return;
-      }
-    }
-
-    setCoach("ok","Wygląda dobrze (LIVE)",
-      "Kąty są w bezpiecznym zakresie. Jeśli chcesz, przełącz tryb na „Instruktor krok po kroku” (kolejny etap dopracujemy).");
-  }
-
-  // ---------- MediaPipe Pose ----------
-  const pose = new Pose.Pose({
-    locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+async function initPose(){
+  pose = new window.Pose({
+    locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/pose/" + file
   });
 
   pose.setOptions({
@@ -368,238 +363,65 @@ if(localStorage.getItem("bikefit_auth") !== "1"){
     minTrackingConfidence: 0.5
   });
 
-  let stream = null;
-  let running = false;
-  let pumping = false;
-
-  function resizeCanvasToVideo(){
-    const w = video.videoWidth || 1280;
-    const h = video.videoHeight || 720;
-    overlay.width = w;
-    overlay.height = h;
-  }
-
-  function lm(landmarks, idx){
-    const p = landmarks[idx];
-    if(!p) return null;
-    return { x: p.x*overlay.width, y: p.y*overlay.height, v: p.visibility ?? 0 };
-  }
-
-  function stabilityScore(landmarks){
-    const need = [11,12,23,24,25,26,27,28,13,14,15,16];
-    let sum=0, n=0;
-    for(const i of need){
-      const v = landmarks[i]?.visibility;
-      if(typeof v === "number"){ sum += v; n++; }
-    }
-    return n ? (sum/n) : 0;
-  }
-
-  function pickSideLandmarks(landmarks){
-    const left = (landmarks[23]?.visibility||0) + (landmarks[25]?.visibility||0) + (landmarks[27]?.visibility||0);
-    const right= (landmarks[24]?.visibility||0) + (landmarks[26]?.visibility||0) + (landmarks[28]?.visibility||0);
-    return (right > left) ? "right" : "left";
-  }
-
-  function computeAngles(landmarks){
-    const side = pickSideLandmarks(landmarks);
-    const idx = (side==="right")
-      ? {sh:12, el:14, wr:16, hip:24, knee:26, an:28}
-      : {sh:11, el:13, wr:15, hip:23, knee:25, an:27};
-
-    const hip = lm(landmarks, idx.hip);
-    const knee = lm(landmarks, idx.knee);
-    const an  = lm(landmarks, idx.an);
-    const sh  = lm(landmarks, idx.sh);
-    const el  = lm(landmarks, idx.el);
-    const wr  = lm(landmarks, idx.wr);
-
-    const kneeAng = angleABC(hip, knee, an);
-    const elbowAng = angleABC(sh, el, wr);
-
-    let torsoAng = NaN;
-    if(sh && hip){
-      const vx = hip.x - sh.x;
-      const vy = hip.y - sh.y;
-      torsoAng = Math.abs(Math.atan2(vy, vx) * 180/Math.PI);
-      if(torsoAng > 90) torsoAng = 180 - torsoAng;
-    }
-    return { knee:kneeAng, elbow:elbowAng, torso:torsoAng };
-  }
-
-  function draw(landmarks){
-    ctx.clearRect(0,0,overlay.width, overlay.height);
-
-    const conns = [
-      [11,13],[13,15],
-      [12,14],[14,16],
-      [11,23],[12,24],
-      [23,25],[25,27],
-      [24,26],[26,28],
-      [23,24],[11,12]
-    ];
-
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "rgba(255,255,255,.7)";
-    ctx.fillStyle = "rgba(255,255,255,.85)";
-
-    for(const [a,b] of conns){
-      const pa = lm(landmarks, a);
-      const pb = lm(landmarks, b);
-      if(!pa || !pb) continue;
-      ctx.beginPath();
-      ctx.moveTo(pa.x, pa.y);
-      ctx.lineTo(pb.x, pb.y);
-      ctx.stroke();
-    }
-
-    for(let i=0;i<landmarks.length;i++){
-      const p = lm(landmarks, i);
-      if(!p) continue;
-      if((landmarks[i].visibility ?? 0) < 0.2) continue;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
-      ctx.fill();
-    }
-  }
-
-  function fmt(v){ return Number.isFinite(v) ? `${v.toFixed(1)}°` : "—"; }
-
-  pose.onResults((res) => {
-    if(!running) return;
-
-    if(!res.poseLandmarks){
-      setStatus("NO POSE");
-      setCoach("warn","Brak sylwetki w kadrze","Ustaw kamerę tak, aby widać było rowerzystę z boku.");
-      return;
-    }
-
-    resizeCanvasToVideo();
-    draw(res.poseLandmarks);
-
-    const stab = stabilityScore(res.poseLandmarks);
-    confWin.push(stab);
-
-    const a = computeAngles(res.poseLandmarks);
-    kneeWin.push(a.knee);
-    elbowWin.push(a.elbow);
-    torsoWin.push(a.torso);
-
-    const knee = kneeWin.mean();
-    const elbow = elbowWin.mean();
-    const torso = torsoWin.mean();
-    const stability = confWin.mean();
-
-    kneeOut.textContent = fmt(knee);
-    elbowOut.textContent = fmt(elbow);
-    torsoOut.textContent = fmt(torso);
-    stabOut.textContent = Number.isFinite(stability) ? stability.toFixed(2) : "—";
-
-    setStatus("LIVE");
-    liveCoach(knee, elbow, torso, stability);
+  pose.onResults((results) => {
+    if(video.videoWidth && canvas.width === 0) resizeCanvasToVideo();
+    draw(results);
+    computeMetrics(results);
   });
+}
 
-  async function pumpFrames(){
-    if(pumping) return;
-    pumping = true;
-    try{
-      while(running){
-        await pose.send({image: video});
-        await new Promise(r => requestAnimationFrame(r));
-      }
-    } finally {
-      pumping = false;
-    }
-  }
+async function startCamera(){
+  try{
+    setStatus("START...", false);
+    setHint("Łączę kamerę", "Przeglądarka może zapytać o zgodę.");
+    dbg("start...");
 
-  async function start(){
-    if(running) return;
-    setStatus("STARTING");
-    setCoach("warn","Uruchamiam kamerę…","Zezwól na dostęp do kamery, jeśli przeglądarka zapyta.");
-    logDBG("Start...");
+    if(!pose) await initPose();
 
-    try{
-      if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-        throw new Error("Brak getUserMedia() w tej przeglądarce.");
-      }
-
-      // ✅ stabilne constraints (bez zgadywania deviceId)
-      const constraints = {
-        audio: false,
-        video: {
-          width: { ideal: 1280 },
-          height:{ ideal: 720 },
-          frameRate: { ideal: 30 },
-        }
-      };
-
-      stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
-
-      await new Promise((resolve) => {
-        video.onloadedmetadata = () => resolve();
-      });
-
-      await video.play();
-
-      resizeCanvasToVideo();
-
-      running = true;
-      setStatus("LIVE");
-      setCoach("warn","LIVE – zbieram stabilne wartości","Jedź stabilnie 10–15 sekund, potem podam wskazówki.");
-      logDBG("Kamera OK. videoWidth=" + video.videoWidth + " videoHeight=" + video.videoHeight);
-
-      pumpFrames();
-    }catch(e){
-      running = false;
-      setStatus("ERROR");
-      const msg = String(e && e.message ? e.message : e);
-      setCoach("bad","Błąd kamery", msg);
-      logDBG("ERROR: " + msg + "\n\nJeśli to 'NotAllowedError' -> Chrome zablokował kamerę dla strony.\nJeśli 'NotReadableError' -> kamera zajęta przez inną aplikację.");
-      stop(true);
-    }
-  }
-
-  function stop(silent){
-    running = false;
-
-    try{
-      if(video) video.pause();
-    }catch(e){}
-
-    if(stream){
-      try{
-        stream.getTracks().forEach(t => t.stop());
-      }catch(e){}
-    }
-
-    stream = null;
-    video.srcObject = null;
-
-    setStatus("OFF");
-    kneeOut.textContent = "—";
-    elbowOut.textContent = "—";
-    torsoOut.textContent = "—";
-    stabOut.textContent = "—";
-    ctx.clearRect(0,0,overlay.width, overlay.height);
-
-    if(!silent){
-      setCoach("warn","Zatrzymano","Kliknij “Start kamery”, aby wrócić do LIVE.");
-      logDBG("Stop.");
-    }
-  }
-
-  btnStart.addEventListener("click", start);
-  btnStop.addEventListener("click", () => stop(false));
-
-  // PWA SW register (zostaje)
-  if("serviceWorker" in navigator){
-    window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch(()=>{});
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode:"user", width:{ideal:1280}, height:{ideal:720} },
+      audio:false
     });
-  }
 
-})();
+    video.srcObject=stream;
+    await video.play();
+    resizeCanvasToVideo();
+
+    camera = new window.Camera(video, {
+      onFrame: async () => { await pose.send({ image: video }); }
+    });
+    camera.start();
+
+    setStatus("ON", true);
+    setHint("Analizuję", "Punkty powinny pojawić się po 1–2 sekundach.");
+    dbg("kamera OK");
+  }catch(e){
+    console.error(e);
+    dbg((e && e.message) ? e.message : String(e));
+    setStatus("OFF", false);
+    setHint("Błąd kamery", "Sprawdź kłódkę (kamera: zezwalaj), zamknij Teams/Zoom i odśwież.");
+  }
+}
+
+function stopCamera(){
+  try{ if(camera) camera.stop(); }catch(_){}
+  camera=null;
+
+  if(stream) stream.getTracks().forEach(t=>t.stop());
+  stream=null;
+
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  setStatus("OFF", false);
+  setHint("Zatrzymano", "Kliknij „Start kamery”, aby uruchomić ponownie.");
+  dbg("stop");
+}
+
+$("startBtn").addEventListener("click", startCamera);
+$("stopBtn").addEventListener("click", stopCamera);
+
+if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+  setHint("Brak wsparcia", "Ta przeglądarka nie obsługuje kamery. Użyj Chrome/Edge.");
+}
 </script>
 </body>
 </html>
