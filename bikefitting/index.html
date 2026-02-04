@@ -5,246 +5,18 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Bikefit LIVE</title>
 
-  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="./app.css" />
   <meta name="theme-color" content="#020617">
 
   <!-- MediaPipe -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
-
-  <style>
-    /* MOTYW jak orders.html */
-    :root{
-      --accent:#2563eb;
-      --accentHover:#1d4ed8;
-      --bg:#020617;
-      --text:#e5e7eb;
-      --panel: rgba(255,255,255,0.05);
-      --panelBorder: rgba(255,255,255,0.10);
-      --muted: rgba(229,231,235,0.7);
-      --ok:#4ade80;
-      --bad:#ef4444;
-      --warn:#f59e0b;
-    }
-    *{ box-sizing:border-box; }
-    body{
-      margin:0;
-      font-family: Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-    }
-    .page{ max-width: 1280px; margin: 0 auto; padding: 14px; }
-
-    .top{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      align-items:center;
-      justify-content:space-between;
-      margin-bottom:10px;
-    }
-    .title{
-      font-size:18px;
-      color:var(--accent);
-      font-weight:900;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      letter-spacing:.2px;
-    }
-    .bar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-
-    .btn{
-      appearance:none;
-      border:1px solid rgba(255,255,255,0.10);
-      background:linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-      color:var(--text);
-      padding:10px 14px;
-      border-radius:14px;
-      cursor:pointer;
-      font-weight:900;
-      transition:.15s ease;
-      user-select:none;
-      white-space:nowrap;
-    }
-    .btn:hover{ transform:translateY(-1px); border-color:rgba(37,99,235,0.45); }
-    .btn.primary{
-      border-color:rgba(37,99,235,0.75);
-      box-shadow:0 0 0 3px rgba(37,99,235,0.18);
-    }
-    .btn.danger:hover{ border-color:rgba(239,68,68,0.55); }
-    .btn.secondary:hover{ border-color:rgba(245,158,11,0.45); }
-
-    .pill{
-      padding:8px 12px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:900;
-      border:1px solid rgba(255,255,255,0.14);
-      background:rgba(0,0,0,0.35);
-      white-space:nowrap;
-      display:flex;
-      align-items:center;
-      gap:8px;
-    }
-    .dot{ width:10px; height:10px; border-radius:50%; background:var(--bad); }
-    .dot.on{ background:var(--ok); }
-
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 12px;
-      border-radius:999px;
-      border:1px solid rgba(37,99,235,0.65);
-      background: rgba(37,99,235,0.12);
-      font-weight:900;
-      font-size:12px;
-      color:#e5e7eb;
-    }
-
-    .steps{
-      display:flex;
-      flex-wrap:wrap;
-      gap:8px;
-      align-items:center;
-      margin: 10px 0 14px;
-    }
-    .stepTag{
-      border:1px solid rgba(255,255,255,0.12);
-      background: rgba(0,0,0,0.25);
-      padding:8px 12px;
-      border-radius:999px;
-      font-size:12px;
-      font-weight:900;
-      color: rgba(229,231,235,0.85);
-      cursor:pointer;
-      user-select:none;
-      white-space:nowrap;
-    }
-    .stepTag.active{
-      border-color: rgba(37,99,235,0.70);
-      box-shadow:0 0 0 3px rgba(37,99,235,0.18);
-      color:#e5e7eb;
-    }
-
-    .card{
-      background:var(--panel);
-      border:1px solid var(--panelBorder);
-      border-radius:16px;
-      padding:14px;
-    }
-    .h{
-      margin:0 0 10px 0;
-      font-size:14px;
-      font-weight:900;
-      letter-spacing:.3px;
-      text-transform:uppercase;
-      color:#93c5fd;
-    }
-    .small{ color:var(--muted); font-size:13px; line-height:1.35; }
-
-    label{
-      display:block;
-      margin:10px 0 6px;
-      font-size:12px;
-      letter-spacing:.5px;
-      text-transform:uppercase;
-      color:#93c5fd;
-      font-weight:900;
-    }
-    input, textarea, select{
-      width:100%;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,0.10);
-      background:rgba(255,255,255,0.03);
-      color:var(--text);
-      outline:none;
-      font-size:14px;
-    }
-    textarea{ min-height: 90px; resize: vertical; }
-
-    .fieldRow{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-    @media (max-width: 680px){ .fieldRow{ grid-template-columns:1fr; } }
-
-    .grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:14px; }
-    @media (max-width: 980px){ .grid{ grid-template-columns:1fr; } }
-
-    /* LIVE */
-    .videoWrap{
-      position:relative;
-      width:100%;
-      aspect-ratio:16/9;
-      background:#000;
-      border-radius:14px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,0.10);
-    }
-    video, canvas{
-      position:absolute; inset:0;
-      width:100%; height:100%;
-      object-fit:contain;
-    }
-
-    .instr{
-      border:1px solid rgba(37,99,235,0.35);
-      background:rgba(37,99,235,0.08);
-      border-radius:14px;
-      padding:14px;
-    }
-    .instr h3{
-      margin:0 0 6px 0;
-      font-size:12px;
-      text-transform:uppercase;
-      letter-spacing:.5px;
-      color:#93c5fd;
-    }
-    .instr .big{ font-size:22px; font-weight:900; margin:0 0 6px 0; color:var(--text); }
-
-    .kpis{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
-    @media (max-width: 980px){ .kpis{ grid-template-columns:1fr; } }
-    .kpi{ padding:12px; }
-    .kpi .label{ font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#93c5fd; font-weight:900; }
-    .kpi .val{ font-size:26px; font-weight:900; margin-top:6px; }
-    .kpi .desc{ margin-top:6px; color:var(--muted); font-size:13px; }
-
-    .debug{
-      margin-top:10px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size:12px;
-      white-space:pre-wrap;
-      padding:12px;
-    }
-
-    /* Report */
-    .reportBox{
-      padding:14px;
-      border-radius:14px;
-      border:1px dashed rgba(255,255,255,0.18);
-      background: rgba(0,0,0,0.18);
-    }
-    .divider{ height:1px; background:rgba(255,255,255,0.10); margin:10px 0; }
-    .shots{
-      display:grid;
-      grid-template-columns: 1fr 1fr;
-      gap:10px;
-      margin-top:10px;
-    }
-    @media (max-width: 980px){ .shots{ grid-template-columns:1fr; } }
-    .shotImg{
-      width:100%;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,0.12);
-      background:#000;
-    }
-  </style>
 </head>
 
 <body>
 <script>
-  /* Gate dostępu: jeśli brak sesji -> wróć do logowania */
+  // Gate: jeśli brak sesji -> wróć do logowania
   const AUTH_KEY = "bikefit_auth";
   function isAuthed(){
     try{
@@ -271,7 +43,7 @@
 
   <div class="steps" id="stepsBar"></div>
 
-  <!-- KROK 1: Klient -->
+  <!-- KROK 1 -->
   <section class="card step" id="step-client">
     <h2 class="h">Klient</h2>
 
@@ -289,12 +61,13 @@
     <label>Notatki</label>
     <textarea id="clientNotes" placeholder='np. ból przodu kolana, drętwieją dłonie, chce bardziej komfort...'></textarea>
 
-    <div style="display:flex; gap:10px; margin-top:12px; justify-content:flex-end;">
+    <div class="navRow">
+      <div></div>
       <button class="btn primary" id="toAnthro">Dalej → Antropometria</button>
     </div>
   </section>
 
-  <!-- KROK 2: Antropometria -->
+  <!-- KROK 2 -->
   <section class="card step" id="step-anthro" style="display:none;">
     <h2 class="h">Antropometria</h2>
 
@@ -320,13 +93,13 @@
       </div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-top:12px; justify-content:space-between;">
+    <div class="navRow">
       <button class="btn" id="backClient">← Wróć</button>
       <button class="btn primary" id="toBike">Dalej → Bike / Dyscyplina</button>
     </div>
   </section>
 
-  <!-- KROK 3: Bike / Dyscyplina -->
+  <!-- KROK 3 -->
   <section class="card step" id="step-bike" style="display:none;">
     <h2 class="h">Bike / Dyscyplina</h2>
 
@@ -353,21 +126,21 @@
       W LIVE nie ma już wyborów — tylko znacznik typu <b>MTB • Neutral</b>. Zmiany robisz tutaj i przechodzisz dalej.
     </div>
 
-    <div style="display:flex; gap:10px; margin-top:12px; justify-content:space-between;">
+    <div class="navRow">
       <button class="btn" id="backAnthro">← Wróć</button>
       <button class="btn primary" id="toLive">Dalej → Bikefitting LIVE</button>
     </div>
   </section>
 
-  <!-- KROK 4: LIVE -->
+  <!-- KROK 4 -->
   <section class="card step" id="step-live" style="display:none;">
     <h2 class="h">Bikefitting LIVE</h2>
 
-    <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between;">
+    <div class="liveTop">
       <div class="small">
-        Kamera uruchamia się dopiero tutaj. Tip: ustaw bokiem tak, aby biodro–kolano–kostka były w kadrze.
+        Kamera uruchamia się dopiero tutaj. Ustaw bokiem tak, aby biodro–kolano–kostka były w kadrze.
       </div>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+      <div class="liveBtns">
         <button id="editBike" class="btn secondary">Zmień ustawienia</button>
         <button id="startBtn" class="btn primary">Start kamery</button>
         <button id="stopBtn" class="btn">Stop</button>
@@ -429,7 +202,7 @@
     </div>
   </section>
 
-  <!-- KROK 5: Raport -->
+  <!-- KROK 5 -->
   <section class="card step" id="step-report" style="display:none;">
     <h2 class="h">Raport</h2>
 
@@ -475,538 +248,17 @@
       <div id="recoList" class="small">—</div>
     </div>
 
-    <div style="display:flex; gap:10px; margin-top:12px; justify-content:space-between;">
+    <div class="navRow">
       <button class="btn" id="backLive">← Wróć do LIVE</button>
-      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end;">
+      <div class="rightBtns">
         <button class="btn" id="clearSession">Wyczyść sesję</button>
         <button class="btn primary" id="printBtn">Drukuj / Zapisz PDF</button>
       </div>
     </div>
   </section>
+
 </div>
 
-<script>
-/* =========================
-   SESSION + STORAGE
-========================= */
-const SESSION_KEY = "bikefit_session_v2";
-
-function defaultSession(){
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth()+1).padStart(2,'0');
-  const dd = String(d.getDate()).padStart(2,'0');
-  return {
-    client: { name:"", date:`${yyyy}-${mm}-${dd}`, notes:"" },
-    body: { heightCm:"", inseamCm:"", footCm:"", armsCm:"" },
-    bike: { discipline:"road", goal:"neutral" },
-    measurements: []
-  };
-}
-function loadSession(){
-  try{
-    const raw = localStorage.getItem(SESSION_KEY);
-    if(!raw) return defaultSession();
-    const s = JSON.parse(raw);
-    if(!s || !s.client || !s.body || !s.bike || !Array.isArray(s.measurements)) return defaultSession();
-    return s;
-  }catch(e){
-    return defaultSession();
-  }
-}
-let session = loadSession();
-
-function saveSession(){
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  updateBadge();
-}
-
-function toLabelDiscipline(d){
-  return d==="mtb" ? "MTB" : (d==="gravel" ? "GRAVEL" : "SZOSA");
-}
-function toLabelGoal(g){
-  return g==="comfort" ? "Komfort" : (g==="aero" ? "Aero" : "Neutral");
-}
-
-/* =========================
-   NAV (kroki)
-========================= */
-const STEPS = [
-  { id:"client", name:"Klient" },
-  { id:"anthro", name:"Antropometria" },
-  { id:"bike", name:"Bike / Dyscyplina" },
-  { id:"live", name:"Bikefitting LIVE" },
-  { id:"report", name:"Raport" }
-];
-let currentStep = "client";
-
-function $(id){ return document.getElementById(id); }
-
-function showStep(id){
-  // gdy wychodzisz z LIVE, nie zatrzymujemy automatycznie kamery (żeby nie zaskakiwać)
-  // ale jeśli chcesz: mogę potem dodać auto-stop przy przejściu do raportu.
-
-  currentStep = id;
-  for(const s of STEPS){
-    const el = $("step-"+s.id);
-    if(el) el.style.display = (s.id===id) ? "" : "none";
-  }
-  renderStepsBar();
-  updateBadge();
-
-  if(id==="report"){
-    renderReport();
-  }
-}
-
-function renderStepsBar(){
-  const bar = $("stepsBar");
-  bar.innerHTML = "";
-  for(const s of STEPS){
-    const tag = document.createElement("div");
-    tag.className = "stepTag" + (s.id===currentStep ? " active" : "");
-    tag.textContent = s.name;
-    tag.onclick = () => showStep(s.id);
-    bar.appendChild(tag);
-  }
-}
-
-function updateBadge(){
-  const b = $("badge");
-  const txt = `${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
-  const visible = (["bike","live","report"].includes(currentStep));
-  b.style.display = visible ? "inline-flex" : "none";
-  b.textContent = txt;
-}
-
-/* =========================
-   TOP BAR ACTIONS
-========================= */
-$("logoutBtn").addEventListener("click", () => {
-  localStorage.removeItem(AUTH_KEY);
-  location.replace("/");
-});
-const statusEl = $("status");
-const dotEl = $("dot");
-function setStatus(txt, on){
-  statusEl.textContent = txt;
-  dotEl.classList.toggle("on", !!on);
-}
-
-/* =========================
-   Bind inputs (autosave)
-========================= */
-function bindInputs(){
-  $("clientName").value = session.client.name || "";
-  $("sessionDate").value = session.client.date || "";
-  $("clientNotes").value = session.client.notes || "";
-
-  $("heightCm").value = session.body.heightCm || "";
-  $("inseamCm").value = session.body.inseamCm || "";
-  $("footCm").value = session.body.footCm || "";
-  $("armsCm").value = session.body.armsCm || "";
-
-  $("discipline").value = session.bike.discipline || "road";
-  $("goal").value = session.bike.goal || "neutral";
-
-  $("clientName").addEventListener("input", () => { session.client.name = $("clientName").value; saveSession(); });
-  $("sessionDate").addEventListener("input", () => { session.client.date = $("sessionDate").value; saveSession(); });
-  $("clientNotes").addEventListener("input", () => { session.client.notes = $("clientNotes").value; saveSession(); });
-
-  $("heightCm").addEventListener("input", () => { session.body.heightCm = $("heightCm").value; saveSession(); });
-  $("inseamCm").addEventListener("input", () => { session.body.inseamCm = $("inseamCm").value; saveSession(); });
-  $("footCm").addEventListener("input", () => { session.body.footCm = $("footCm").value; saveSession(); });
-  $("armsCm").addEventListener("input", () => { session.body.armsCm = $("armsCm").value; saveSession(); });
-
-  $("discipline").addEventListener("change", () => { session.bike.discipline = $("discipline").value; saveSession(); });
-  $("goal").addEventListener("change", () => { session.bike.goal = $("goal").value; saveSession(); });
-}
-
-/* =========================
-   Buttons navigation
-========================= */
-$("toAnthro").onclick = () => showStep("anthro");
-$("backClient").onclick = () => showStep("client");
-$("toBike").onclick = () => showStep("bike");
-$("backAnthro").onclick = () => showStep("anthro");
-$("toLive").onclick = () => { saveSession(); showStep("live"); };
-$("editBike").onclick = () => showStep("bike");
-$("toReport").onclick = () => showStep("report");
-$("backLive").onclick = () => showStep("live");
-
-/* =========================
-   LIVE: Presety progów
-========================= */
-function presets(discipline, goal){
-  const base = {
-    road:   { knee:[140,155], elbow:[140,165], torso:[30,55] },
-    gravel: { knee:[138,153], elbow:[138,162], torso:[28,52] },
-    mtb:    { knee:[135,150], elbow:[135,158], torso:[25,48] }
-  };
-  const adj = (goal==="comfort")
-    ? { knee:-2, elbow:-3, torso:-3 }
-    : (goal==="aero")
-      ? { knee:+2, elbow:+2, torso:+3 }
-      : { knee:0, elbow:0, torso:0 };
-
-  const b = base[discipline] || base.road;
-  return {
-    knee:[ b.knee[0]+adj.knee, b.knee[1]+adj.knee ],
-    elbow:[ b.elbow[0]+adj.elbow, b.elbow[1]+adj.elbow ],
-    torso:[ b.torso[0]+adj.torso, b.torso[1]+adj.torso ],
-  };
-}
-
-/* =========================
-   LIVE: MediaPipe (kamera)
-========================= */
-let camera = null;
-let pose = null;
-let stream = null;
-
-const video = $("video");
-const canvas = $("canvas");
-const ctx = canvas.getContext("2d");
-
-const debugEl = $("debug");
-const hintTitle = $("hintTitle");
-const hintText = $("hintText");
-
-let lastMetrics = { knee:null, elbow:null, torso:null, stab:null };
-
-function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
-function setHint(title, text){
-  hintTitle.textContent = title;
-  hintText.textContent = text;
-}
-
-function angleABC(a,b,c){
-  const abx=a.x-b.x, aby=a.y-b.y;
-  const cbx=c.x-b.x, cby=c.y-b.y;
-  const dot=abx*cbx+aby*cby;
-  const lab=Math.hypot(abx,aby);
-  const lcb=Math.hypot(cbx,cby);
-  if(lab===0||lcb===0) return null;
-  let cos=dot/(lab*lcb);
-  cos=Math.max(-1,Math.min(1,cos));
-  return Math.acos(cos)*180/Math.PI;
-}
-function fmtDeg(x){ return (x==null||Number.isNaN(x)) ? "—" : (Math.round(x)+"°"); }
-
-function resizeCanvasToVideo(){
-  const w=video.videoWidth||1280;
-  const h=video.videoHeight||720;
-  canvas.width=w; canvas.height=h;
-}
-
-function draw(results){
-  ctx.save();
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-
-  if(results.image){
-    ctx.drawImage(results.image,0,0,canvas.width,canvas.height);
-  }
-  if(results.poseLandmarks){
-    window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS,
-      { color: "rgba(255,255,255,0.35)", lineWidth: 3 });
-    window.drawLandmarks(ctx, results.poseLandmarks,
-      { color: "rgba(255,255,255,0.95)", lineWidth: 2, radius: 4 });
-  }
-  ctx.restore();
-}
-
-function computeMetrics(results){
-  const lm=results.poseLandmarks;
-  if(!lm) return;
-
-  const hip=lm[24], knee=lm[26], ankle=lm[28];
-  const shoulder=lm[12], elbow=lm[14], wrist=lm[16];
-
-  const kneeAng=angleABC(hip,knee,ankle);
-  const elbowAng=angleABC(shoulder,elbow,wrist);
-
-  let torsoAng=null;
-  if(hip && shoulder){
-    const a={x:hip.x, y:hip.y-1};
-    torsoAng=angleABC(a, hip, shoulder);
-  }
-
-  const vis=[hip,knee,ankle,shoulder,elbow,wrist].map(p=>p?.visibility??0);
-  const avg=vis.reduce((s,v)=>s+v,0)/vis.length;
-  const stab=Math.round(avg*100);
-
-  $("kneeVal").textContent=fmtDeg(kneeAng);
-  $("elbowVal").textContent=fmtDeg(elbowAng);
-  $("torsoVal").textContent=fmtDeg(torsoAng);
-  $("stabVal").textContent = (isFinite(stab)?(stab+"%"):"—");
-
-  lastMetrics = { knee:kneeAng, elbow:elbowAng, torso:torsoAng, stab:stab };
-
-  const p = presets(session.bike.discipline, session.bike.goal);
-
-  if(kneeAng!=null){
-    if(kneeAng < p.knee[0]){
-      setHint("Kolano za mocno zgięte", "Najczęściej: siodło za nisko. Podnieś o 3–5 mm i zrób re-test (10–20 obrotów).");
-    }else if(kneeAng > p.knee[1]){
-      setHint("Kolano za proste", "Najczęściej: siodło za wysoko. Opuść o 3–5 mm i zrób re-test (10–20 obrotów).");
-    }else{
-      if(elbowAng!=null){
-        if(elbowAng > p.elbow[1]){
-          setHint("Ręce za proste / za duży reach", "Test: krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm). Jedna zmiana naraz.");
-        }else if(elbowAng < p.elbow[0]){
-          setHint("Ręce mocno ugięte / pozycja zebrana", "Jeśli to nie cel aero: test dłuższy mostek (+10 mm) lub korekta kokpitu.");
-        }else{
-          setHint("Wygląda dobrze", "Zapisz „PRZED”, zrób jedną zmianę i zapisz „PO”.");
-        }
-      }else{
-        setHint("Kolano OK", "Nie widzę stabilnie łokcia/nadgarstka — popraw kadr lub światło.");
-      }
-    }
-  }
-
-  if(isFinite(stab) && stab < 55){
-    dbg("Uwaga: niska stabilność punktów ("+stab+"%). Popraw światło / kadr / obcisłe ubrania.");
-  }
-}
-
-async function initPose(){
-  pose = new window.Pose({
-    locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/pose/" + file
-  });
-
-  pose.setOptions({
-    modelComplexity: 1,
-    smoothLandmarks: true,
-    enableSegmentation: false,
-    minDetectionConfidence: 0.5,
-    minTrackingConfidence: 0.5
-  });
-
-  pose.onResults((results) => {
-    if(video.videoWidth && canvas.width === 0) resizeCanvasToVideo();
-    draw(results);
-    computeMetrics(results);
-  });
-}
-
-async function startCamera(){
-  try{
-    setStatus("START...", false);
-    setHint("Łączę kamerę", "Przeglądarka może zapytać o zgodę.");
-    dbg("start...");
-
-    if(!pose) await initPose();
-
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode:"user", width:{ideal:1280}, height:{ideal:720} },
-      audio:false
-    });
-
-    video.srcObject=stream;
-    await video.play();
-    resizeCanvasToVideo();
-
-    camera = new window.Camera(video, {
-      onFrame: async () => { await pose.send({ image: video }); }
-    });
-    camera.start();
-
-    setStatus("ON", true);
-    setHint("Analizuję", "Punkty powinny pojawić się po 1–2 sekundach.");
-    dbg("kamera OK");
-  }catch(e){
-    console.error(e);
-    dbg((e && e.message) ? e.message : String(e));
-    setStatus("OFF", false);
-    setHint("Błąd kamery", "Sprawdź kłódkę (kamera: zezwalaj), zamknij Teams/Zoom i odśwież.");
-  }
-}
-
-function stopCamera(){
-  try{ if(camera) camera.stop(); }catch(_){}
-  camera=null;
-
-  if(stream) stream.getTracks().forEach(t=>t.stop());
-  stream=null;
-
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  setStatus("OFF", false);
-  setHint("Zatrzymano", "Kliknij „Start kamery”, aby uruchomić ponownie.");
-  dbg("stop");
-}
-
-$("startBtn").addEventListener("click", startCamera);
-$("stopBtn").addEventListener("click", stopCamera);
-
-if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-  setHint("Brak wsparcia", "Ta przeglądarka nie obsługuje kamery. Użyj Chrome/Edge.");
-}
-
-/* =========================
-   Snapshot / Zapis pomiaru
-========================= */
-function uuid(){
-  return Math.random().toString(16).slice(2) + "-" + Date.now().toString(16);
-}
-function takeSnapshot(){
-  try{ return canvas.toDataURL("image/jpeg", 0.85); }
-  catch(e){ return null; }
-}
-function suggestLabel(){
-  const n = session.measurements.length;
-  if(n === 0) return "PRZED";
-  if(n === 1) return "PO";
-  return "PO " + n;
-}
-$("saveShot").addEventListener("click", () => {
-  if(!lastMetrics || (!isFinite(lastMetrics.stab) && lastMetrics.knee==null)){
-    alert("Nie mam danych do zapisania. Uruchom kamerę i poczekaj aż pojawią się punkty.");
-    return;
-  }
-  const img = takeSnapshot();
-  const label = suggestLabel();
-  const ts = Date.now();
-
-  session.measurements.push({
-    id: uuid(),
-    ts,
-    label,
-    discipline: session.bike.discipline,
-    goal: session.bike.goal,
-    knee: lastMetrics.knee,
-    elbow: lastMetrics.elbow,
-    torso: lastMetrics.torso,
-    stab: lastMetrics.stab,
-    imgDataUrl: img
-  });
-  saveSession();
-  alert("Zapisano pomiar: " + label);
-});
-
-/* =========================
-   Report
-========================= */
-function fmtDate(ts){
-  const d = new Date(ts);
-  return d.toLocaleString("pl-PL", { year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" });
-}
-function angleText(m){
-  const k = (m.knee==null ? "—" : (Math.round(m.knee)+"°"));
-  const e = (m.elbow==null ? "—" : (Math.round(m.elbow)+"°"));
-  const t = (m.torso==null ? "—" : (Math.round(m.torso)+"°"));
-  const s = (isFinite(m.stab) ? (m.stab+"%") : "—");
-  return `Kolano: ${k} • Łokieć: ${e} • Tułów: ${t} • Stabilność: ${s}`;
-}
-function fillSelect(sel, measurements){
-  sel.innerHTML = "";
-  if(!measurements.length){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "Brak pomiarów";
-    sel.appendChild(opt);
-    sel.disabled = true;
-    return;
-  }
-  sel.disabled = false;
-  measurements.forEach((m, idx) => {
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = `${idx+1}. ${m.label} • ${fmtDate(m.ts)}`;
-    sel.appendChild(opt);
-  });
-}
-function getMeasurementById(id){
-  return session.measurements.find(m => m.id === id) || null;
-}
-function renderReco(before, after){
-  const out = [];
-  const p = presets(session.bike.discipline, session.bike.goal);
-  const cur = after || session.measurements[session.measurements.length-1] || null;
-
-  if(before && after){
-    if(before.knee!=null && after.knee!=null){
-      const dk = after.knee - before.knee;
-      if(Math.abs(dk) >= 2) out.push(`Zmiana kąta kolana: ${dk>0?"+":""}${Math.round(dk)}° (po).`);
-    }
-    if(before.elbow!=null && after.elbow!=null){
-      const de = after.elbow - before.elbow;
-      if(Math.abs(de) >= 2) out.push(`Zmiana kąta łokcia: ${de>0?"+":""}${Math.round(de)}° (po).`);
-    }
-  }
-
-  if(cur && cur.knee!=null){
-    if(cur.knee < p.knee[0]) out.push("Siodło prawdopodobnie za nisko → podnieś 3–5 mm i re-test.");
-    else if(cur.knee > p.knee[1]) out.push("Siodło prawdopodobnie za wysoko → opuść 3–5 mm i re-test.");
-    else out.push("Wysokość siodła wygląda OK (wg kolana).");
-  }
-  if(cur && cur.elbow!=null){
-    if(cur.elbow > p.elbow[1]) out.push("Możliwie za duży reach → krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm).");
-    else if(cur.elbow < p.elbow[0]) out.push("Pozycja mocno zebrana → jeśli to nie aero, test dłuższy mostek (+10 mm).");
-    else out.push("Reach / łokieć wygląda OK.");
-  }
-
-  if(!out.length) return "Brak danych — zrób pomiary w LIVE i zapisz „PRZED” i „PO”.";
-  return "<ul style='margin:8px 0 0 18px;'>" + out.map(x=>`<li>${x}</li>`).join("") + "</ul>";
-}
-
-function renderReport(){
-  $("rClient").textContent = session.client.name || "—";
-  $("rDate").textContent = session.client.date || "—";
-  $("rBike").textContent = `${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
-  $("rNotes").textContent = session.client.notes ? session.client.notes : "—";
-
-  const beforeSel = $("beforeSel");
-  const afterSel = $("afterSel");
-  fillSelect(beforeSel, session.measurements);
-  fillSelect(afterSel, session.measurements);
-
-  if(session.measurements.length >= 1){
-    beforeSel.value = session.measurements[0].id;
-    afterSel.value = session.measurements[session.measurements.length-1].id;
-  }
-
-  function updateCompare(){
-    const b = getMeasurementById(beforeSel.value);
-    const a = getMeasurementById(afterSel.value);
-
-    $("beforeMeta").textContent = b ? `${b.label} • ${fmtDate(b.ts)}` : "—";
-    $("afterMeta").textContent = a ? `${a.label} • ${fmtDate(a.ts)}` : "—";
-
-    $("beforeImg").src = (b && b.imgDataUrl) ? b.imgDataUrl : "";
-    $("afterImg").src = (a && a.imgDataUrl) ? a.imgDataUrl : "";
-
-    $("beforeAngles").textContent = b ? angleText(b) : "—";
-    $("afterAngles").textContent = a ? angleText(a) : "—";
-
-    $("recoList").innerHTML = renderReco(b,a);
-  }
-
-  beforeSel.onchange = updateCompare;
-  afterSel.onchange = updateCompare;
-  updateCompare();
-}
-
-$("clearSession").addEventListener("click", () => {
-  if(confirm("Na pewno wyczyścić całą sesję (klient + pomiary)?")){
-    session = defaultSession();
-    saveSession();
-    bindInputs();
-    alert("Sesja wyczyszczona.");
-    showStep("client");
-  }
-});
-$("printBtn").addEventListener("click", () => window.print());
-
-/* =========================
-   INIT
-========================= */
-bindInputs();
-renderStepsBar();
-updateBadge();
-setStatus("OFF", false);
-showStep("client");
-saveSession();
-</script>
-
+<script type="module" src="./app.js"></script>
 </body>
 </html>
