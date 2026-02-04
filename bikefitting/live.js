@@ -1,4 +1,4 @@
-import { presets } from "./presets.js";
+import { presets, toLabelDiscipline, toLabelGoal } from "./presets.js";
 
 export function createLiveController(deps){
   const {
@@ -14,6 +14,10 @@ export function createLiveController(deps){
   const ctx = canvasEl.getContext("2d");
   let lastMetrics = { knee:null, elbow:null, torso:null, stab:null };
 
+  // żeby nie spamować instrukcjami w każdej klatce
+  let lastHintKey = "";
+  let lastHintAt = 0;
+
   function angleABC(a,b,c){
     const abx=a.x-b.x, aby=a.y-b.y;
     const cbx=c.x-b.x, cby=c.y-b.y;
@@ -25,6 +29,7 @@ export function createLiveController(deps){
     cos=Math.max(-1,Math.min(1,cos));
     return Math.acos(cos)*180/Math.PI;
   }
+
   function fmtDeg(x){ return (x==null||Number.isNaN(x)) ? "—" : (Math.round(x)+"°"); }
 
   function resizeCanvasToVideo(){
@@ -41,6 +46,7 @@ export function createLiveController(deps){
       ctx.drawImage(results.image,0,0,canvasEl.width,canvasEl.height);
     }
     if(results.poseLandmarks){
+      // rysunki pomocnicze – zostawiamy
       window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS,
         { color: "rgba(255,255,255,0.35)", lineWidth: 3 });
       window.drawLandmarks(ctx, results.poseLandmarks,
@@ -49,10 +55,110 @@ export function createLiveController(deps){
     ctx.restore();
   }
 
+  function throttleHint(key, ms=900){
+    const now = Date.now();
+    if(key !== lastHintKey || (now - lastHintAt) > ms){
+      lastHintKey = key;
+      lastHintAt = now;
+      return true;
+    }
+    return false;
+  }
+
+  function setHintSafe(key, title, text){
+    if(throttleHint(key)){
+      setHint(title, text);
+    }
+  }
+
+  function instructionEngine(session, m){
+    // pobierz progi z presets.js
+    const p = presets(session.bike.discipline, session.bike.goal);
+
+    // Jakakolwiek widoczność kiepska -> najpierw “technikalia”
+    if(isFinite(m.stab) && m.stab < 55){
+      setHintSafe(
+        "stab_low",
+        "Słaba widoczność punktów",
+        `Stabilność ${m.stab}%. Popraw światło, ustaw kadr (biodro–kolano–kostka w widoku), unikaj luźnych ubrań.`
+      );
+      return;
+    }
+
+    // 1) Kolano -> siodło
+    if(m.knee != null){
+      if(m.knee < p.knee[0]){
+        setHintSafe(
+          "knee_low",
+          "Kolano za mocno zgięte",
+          `Kąt kolana ${Math.round(m.knee)}° (poniżej ${p.knee[0]}°). Najczęściej: siodło za nisko. Podnieś 3–5 mm i re-test 10–20 obrotów.`
+        );
+        return;
+      }
+      if(m.knee > p.knee[1]){
+        setHintSafe(
+          "knee_high",
+          "Kolano za proste",
+          `Kąt kolana ${Math.round(m.knee)}° (powyżej ${p.knee[1]}°). Najczęściej: siodło za wysoko. Opuść 3–5 mm i re-test 10–20 obrotów.`
+        );
+        return;
+      }
+    }
+
+    // 2) Tułów -> wysokość kokpitu (drop)
+    if(m.torso != null){
+      if(m.torso < p.torso[0]){
+        setHintSafe(
+          "torso_low",
+          "Tułów zbyt niski / agresywny",
+          `Kąt tułowia ${Math.round(m.torso)}° (poniżej ${p.torso[0]}°). Dla celu ${toLabelGoal(session.bike.goal)} rozważ: podnieść kokpit +5–10 mm lub krótszy mostek.`
+        );
+        return;
+      }
+      if(m.torso > p.torso[1]){
+        setHintSafe(
+          "torso_high",
+          "Tułów zbyt wysoki / zbyt pionowo",
+          `Kąt tułowia ${Math.round(m.torso)}° (powyżej ${p.torso[1]}°). Jeśli chcesz bardziej sportowo: obniż kokpit 5–10 mm i sprawdź komfort.`
+        );
+        return;
+      }
+    }
+
+    // 3) Łokieć -> reach / mostek
+    if(m.elbow != null){
+      if(m.elbow > p.elbow[1]){
+        setHintSafe(
+          "elbow_high",
+          "Ręce za proste / reach za duży",
+          `Kąt łokcia ${Math.round(m.elbow)}° (powyżej ${p.elbow[1]}°). Test: krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm). Jedna zmiana naraz.`
+        );
+        return;
+      }
+      if(m.elbow < p.elbow[0]){
+        setHintSafe(
+          "elbow_low",
+          "Ręce mocno ugięte / pozycja zebrana",
+          `Kąt łokcia ${Math.round(m.elbow)}° (poniżej ${p.elbow[0]}°). Jeśli to nie cel aero: test dłuższy mostek (+10 mm) albo delikatnie niżej kokpit.`
+        );
+        return;
+      }
+    }
+
+    // Jeśli wszystko w normie:
+    const label = `${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
+    setHintSafe(
+      "ok_all",
+      "Wygląda dobrze ✅",
+      `Jesteś w zakresach dla: ${label}. Zapisz „PRZED”, zrób jedną zmianę i zapisz „PO”.`
+    );
+  }
+
   function computeMetrics(results, session){
     const lm=results.poseLandmarks;
     if(!lm) return;
 
+    // (prawa strona ciała domyślnie)
     const hip=lm[24], knee=lm[26], ankle=lm[28];
     const shoulder=lm[12], elbow=lm[14], wrist=lm[16];
 
@@ -76,31 +182,11 @@ export function createLiveController(deps){
 
     lastMetrics = { knee:kneeAng, elbow:elbowAng, torso:torsoAng, stab:stab };
 
-    const p = presets(session.bike.discipline, session.bike.goal);
+    // Instruktor krok-po-kroku:
+    instructionEngine(session, lastMetrics);
 
-    if(kneeAng!=null){
-      if(kneeAng < p.knee[0]){
-        setHint("Kolano za mocno zgięte", "Najczęściej: siodło za nisko. Podnieś o 3–5 mm i zrób re-test (10–20 obrotów).");
-      }else if(kneeAng > p.knee[1]){
-        setHint("Kolano za proste", "Najczęściej: siodło za wysoko. Opuść o 3–5 mm i zrób re-test (10–20 obrotów).");
-      }else{
-        if(elbowAng!=null){
-          if(elbowAng > p.elbow[1]){
-            setHint("Ręce za proste / za duży reach", "Test: krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm). Jedna zmiana naraz.");
-          }else if(elbowAng < p.elbow[0]){
-            setHint("Ręce mocno ugięte / pozycja zebrana", "Jeśli to nie cel aero: test dłuższy mostek (+10 mm) lub korekta kokpitu.");
-          }else{
-            setHint("Wygląda dobrze", "Zapisz „PRZED”, zrób jedną zmianę i zapisz „PO”.");
-          }
-        }else{
-          setHint("Kolano OK", "Nie widzę stabilnie łokcia/nadgarstka — popraw kadr lub światło.");
-        }
-      }
-    }
-
-    if(isFinite(stab) && stab < 55){
-      dbg("Uwaga: niska stabilność punktów ("+stab+"%). Popraw światło / kadr / obcisłe ubrania.");
-    }
+    // Debug
+    dbg(`preset: ${session.bike.discipline}/${session.bike.goal} | knee=${fmtDeg(kneeAng)} elbow=${fmtDeg(elbowAng)} torso=${fmtDeg(torsoAng)} stab=${stab}%`);
   }
 
   async function initPose(){
@@ -119,7 +205,6 @@ export function createLiveController(deps){
     pose.onResults((results) => {
       if(videoEl.videoWidth && canvasEl.width === 0) resizeCanvasToVideo();
       draw(results);
-      // session będzie podany w app.js przy wywołaniu
     });
   }
 
