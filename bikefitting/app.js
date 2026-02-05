@@ -14,6 +14,23 @@ function defaultSession(){
     client: { name:"", date:`${yyyy}-${mm}-${dd}`, notes:"" },
     body: { heightCm:"", inseamCm:"", footCm:"", armsCm:"" },
     bike: { discipline:"road", goal:"neutral" },
+
+    // NOWE: Rower klienta (stan wyjściowy)
+    bikeSetup: {
+      bikeModel: "",
+      frameSize: "",
+      frameReach: "",
+      frameStack: "",
+      stemLength: "",
+      stemAngle: "",
+      handlebarWidth: "",
+      handlebarHeight: "",
+      saddleModel: "",
+      saddleHeight: "",
+      seatpostOffset: "",
+      crankLength: ""
+    },
+
     measurements: []
   };
 }
@@ -24,6 +41,10 @@ function loadSession(){
     if(!raw) return defaultSession();
     const s = JSON.parse(raw);
     if(!s || !s.client || !s.body || !s.bike || !Array.isArray(s.measurements)) return defaultSession();
+
+    // zapewnij nowe pola w starszych sesjach
+    if(!s.bikeSetup) s.bikeSetup = defaultSession().bikeSetup;
+
     return s;
   }catch(e){
     return defaultSession();
@@ -34,7 +55,6 @@ let session = loadSession();
 function saveSession(){
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   updateBadge();
-  updatePresetUI();
 }
 
 function uuid(){
@@ -74,34 +94,6 @@ function updateBadge(){
   b.textContent = txt;
 }
 
-/* ===== PRESETY UI ===== */
-function fmtRange(r){
-  if(!r || r.length !== 2) return "—";
-  return `${r[0]}–${r[1]}°`;
-}
-
-function updatePresetUI(){
-  const kneeEl  = $("rangeKnee");
-  const elbowEl = $("rangeElbow");
-  const torsoEl = $("rangeTorso");
-  const hintEl  = $("presetHint");
-
-  if(!kneeEl && !elbowEl && !torsoEl && !hintEl) return;
-
-  const p = presets(session.bike.discipline, session.bike.goal);
-
-  if(kneeEl)  kneeEl.textContent  = fmtRange(p.knee);
-  if(elbowEl) elbowEl.textContent = fmtRange(p.elbow);
-  if(torsoEl) torsoEl.textContent = fmtRange(p.torso);
-
-  if(hintEl){
-    hintEl.textContent = `Preset aktywny: ${toLabelDiscipline(session.bike.discipline)} / ${toLabelGoal(session.bike.goal)}.`;
-  }
-
-  window.BIKEFIT_PRESET = p;
-}
-/* ===== KONIEC PRESETÓW ===== */
-
 /* steps bar */
 function renderStepsBar(){
   const bar = $("stepsBar");
@@ -124,9 +116,6 @@ function showStep(id){
   renderStepsBar();
   updateBadge();
 
-  if(id==="bike"){
-    updatePresetUI();
-  }
   if(id==="report"){
     renderReport();
   }
@@ -146,6 +135,20 @@ function bindInputs(){
   $("discipline").value = session.bike.discipline || "road";
   $("goal").value = session.bike.goal || "neutral";
 
+  // Rower klienta (stan wyjściowy)
+  $("bikeModel").value = session.bikeSetup.bikeModel || "";
+  $("frameSize").value = session.bikeSetup.frameSize || "";
+  $("frameReach").value = session.bikeSetup.frameReach || "";
+  $("frameStack").value = session.bikeSetup.frameStack || "";
+  $("stemLength").value = session.bikeSetup.stemLength || "";
+  $("stemAngle").value = session.bikeSetup.stemAngle || "";
+  $("handlebarWidth").value = session.bikeSetup.handlebarWidth || "";
+  $("handlebarHeight").value = session.bikeSetup.handlebarHeight || "";
+  $("saddleModel").value = session.bikeSetup.saddleModel || "";
+  $("saddleHeight").value = session.bikeSetup.saddleHeight || "";
+  $("seatpostOffset").value = session.bikeSetup.seatpostOffset || "";
+  $("crankLength").value = session.bikeSetup.crankLength || "";
+
   $("clientName").addEventListener("input", () => { session.client.name = $("clientName").value; saveSession(); });
   $("sessionDate").addEventListener("input", () => { session.client.date = $("sessionDate").value; saveSession(); });
   $("clientNotes").addEventListener("input", () => { session.client.notes = $("clientNotes").value; saveSession(); });
@@ -155,17 +158,22 @@ function bindInputs(){
   $("footCm").addEventListener("input", () => { session.body.footCm = $("footCm").value; saveSession(); });
   $("armsCm").addEventListener("input", () => { session.body.armsCm = $("armsCm").value; saveSession(); });
 
-  $("discipline").addEventListener("change", () => {
-    session.bike.discipline = $("discipline").value;
-    saveSession();
-  });
+  $("discipline").addEventListener("change", () => { session.bike.discipline = $("discipline").value; saveSession(); });
+  $("goal").addEventListener("change", () => { session.bike.goal = $("goal").value; saveSession(); });
 
-  $("goal").addEventListener("change", () => {
-    session.bike.goal = $("goal").value;
-    saveSession();
-  });
-
-  updatePresetUI();
+  // Rower klienta (stan wyjściowy)
+  $("bikeModel").addEventListener("input", () => { session.bikeSetup.bikeModel = $("bikeModel").value; saveSession(); });
+  $("frameSize").addEventListener("input", () => { session.bikeSetup.frameSize = $("frameSize").value; saveSession(); });
+  $("frameReach").addEventListener("input", () => { session.bikeSetup.frameReach = $("frameReach").value; saveSession(); });
+  $("frameStack").addEventListener("input", () => { session.bikeSetup.frameStack = $("frameStack").value; saveSession(); });
+  $("stemLength").addEventListener("input", () => { session.bikeSetup.stemLength = $("stemLength").value; saveSession(); });
+  $("stemAngle").addEventListener("input", () => { session.bikeSetup.stemAngle = $("stemAngle").value; saveSession(); });
+  $("handlebarWidth").addEventListener("input", () => { session.bikeSetup.handlebarWidth = $("handlebarWidth").value; saveSession(); });
+  $("handlebarHeight").addEventListener("input", () => { session.bikeSetup.handlebarHeight = $("handlebarHeight").value; saveSession(); });
+  $("saddleModel").addEventListener("input", () => { session.bikeSetup.saddleModel = $("saddleModel").value; saveSession(); });
+  $("saddleHeight").addEventListener("input", () => { session.bikeSetup.saddleHeight = $("saddleHeight").value; saveSession(); });
+  $("seatpostOffset").addEventListener("input", () => { session.bikeSetup.seatpostOffset = $("seatpostOffset").value; saveSession(); });
+  $("crankLength").addEventListener("input", () => { session.bikeSetup.crankLength = $("crankLength").value; saveSession(); });
 }
 
 /* nav buttons */
@@ -183,17 +191,11 @@ const hintTitle = $("hintTitle");
 const hintText = $("hintText");
 const debugEl = $("debug");
 
-// pamiętamy ostatnią podpowiedź instruktora (do snapshotu)
-let lastInstructor = { title: "", text: "", ts: 0 };
-
 function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
-
 function setHint(title, text){
   hintTitle.textContent = title;
   hintText.textContent = text;
-  lastInstructor = { title: String(title||""), text: String(text||""), ts: Date.now() };
 }
-
 function setKpi(which, val){
   if(which==="knee") $("kneeVal").textContent = val;
   if(which==="elbow") $("elbowVal").textContent = val;
@@ -220,7 +222,7 @@ function suggestLabel(){
   return "PO " + n;
 }
 
-/* ===== ZMIANY (log “co przestawiłem”) ===== */
+/* ===== ZMIANY (co przestawiłem) ===== */
 let pendingChange = null;
 
 function numOrNull(v){
@@ -235,6 +237,14 @@ function openChangePanel(open){
   p.style.display = open ? "" : "none";
 }
 
+function clearChangeInputs(){
+  if($("chgSaddleH")) $("chgSaddleH").value = "";
+  if($("chgSaddleFB")) $("chgSaddleFB").value = "";
+  if($("chgCockpitH")) $("chgCockpitH").value = "";
+  if($("chgStem")) $("chgStem").value = "";
+  if($("chgNote")) $("chgNote").value = "";
+}
+
 $("addChangeBtn")?.addEventListener("click", () => openChangePanel(true));
 $("chgCancel")?.addEventListener("click", () => openChangePanel(false));
 
@@ -244,34 +254,36 @@ $("chgApply")?.addEventListener("click", () => {
     saddleFB: numOrNull($("chgSaddleFB")?.value),
     cockpitH: numOrNull($("chgCockpitH")?.value),
     stem:     numOrNull($("chgStem")?.value),
-    note:     String($("chgNote")?.value || "").trim(),
-    ts: Date.now()
+    note:     ($("chgNote")?.value || "").trim()
   };
   openChangePanel(false);
-  alert("Zapisano zmianę. Teraz kliknij „Zapisz pomiar” (PO), żeby ją dołączyć do pomiaru.");
+  alert("Zapisano zmianę. Teraz kliknij „Zapisz pomiar”, aby przypisać ją do kolejnego pomiaru.");
 });
 
-function clearChangeInputs(){
-  if($("chgSaddleH")) $("chgSaddleH").value = "";
-  if($("chgSaddleFB")) $("chgSaddleFB").value = "";
-  if($("chgCockpitH")) $("chgCockpitH").value = "";
-  if($("chgStem")) $("chgStem").value = "";
-  if($("chgNote")) $("chgNote").value = "";
+/* ===== Presety na ekranie Bike ===== */
+function updatePresetUI(){
+  const p = presets(session.bike.discipline, session.bike.goal);
+  $("rangeKnee").textContent = `${p.knee[0]}–${p.knee[1]}°`;
+  $("rangeElbow").textContent = `${p.elbow[0]}–${p.elbow[1]}°`;
+  $("rangeTorso").textContent = `${p.torso[0]}–${p.torso[1]}°`;
+  $("presetHint").textContent = `Preset: ${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
 }
+$("discipline").addEventListener("change", updatePresetUI);
+$("goal").addEventListener("change", updatePresetUI);
 
-/* ===== zapisywanie pomiaru ===== */
 $("saveShot").addEventListener("click", () => {
   const m = live.getLastMetrics();
+  const p = presets(session.bike.discipline, session.bike.goal);
+
   if(!m || (!isFinite(m.stab) && m.knee==null)){
     alert("Nie mam danych do zapisania. Uruchom kamerę i poczekaj aż pojawią się punkty.");
     return;
   }
-
   const img = live.snapshot();
   const label = suggestLabel();
   const ts = Date.now();
 
-  const p = presets(session.bike.discipline, session.bike.goal);
+  const lastInstructor = live.getLastInstructor?.() || { title:"", text:"", ts };
 
   session.measurements.push({
     id: uuid(),
@@ -298,7 +310,7 @@ $("saveShot").addEventListener("click", () => {
       torso: p.torso
     },
 
-    // NOWE: zmiany przed tym pomiarem (jeśli dodane)
+    // zmiany przed tym pomiarem (jeśli dodane)
     change: pendingChange
   });
 
@@ -318,6 +330,8 @@ function renderReport(){
     rDate: $("rDate"),
     rBike: $("rBike"),
     rNotes: $("rNotes"),
+    rSetup: $("rSetup"),
+
     beforeSel: $("beforeSel"),
     afterSel: $("afterSel"),
     beforeMeta: $("beforeMeta"),
@@ -350,3 +364,4 @@ setHint("Uruchom kamerę", "Kliknij „Start kamery” w kroku LIVE.");
 dbg("gotowe.");
 showStep("client");
 saveSession();
+updatePresetUI();
