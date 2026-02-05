@@ -30,6 +30,21 @@ function instructorText(m){
   return `Instruktor: ${title || text}`;
 }
 
+function changeText(m){
+  const c = m.change;
+  if(!c) return "";
+
+  const parts = [];
+  if(c.saddleH != null) parts.push(`Siodło: ${c.saddleH>0?"+":""}${c.saddleH} mm`);
+  if(c.saddleFB != null) parts.push(`Siodło przód/tył: ${c.saddleFB>0?"+":""}${c.saddleFB} mm`);
+  if(c.cockpitH != null) parts.push(`Kokpit: ${c.cockpitH>0?"+":""}${c.cockpitH} mm`);
+  if(c.stem != null) parts.push(`Mostek: ${c.stem>0?"+":""}${c.stem} mm`);
+
+  const head = parts.length ? ("Zmiany: " + parts.join(" • ")) : "Zmiany: —";
+  const note = c.note ? (`Notatka: ${c.note}`) : "";
+  return note ? (head + "\n" + note) : head;
+}
+
 function fillSelect(sel, measurements){
   sel.innerHTML = "";
   if(!measurements.length){
@@ -55,11 +70,8 @@ function getMeasurementById(session, id){
 
 function renderReco(session, before, after){
   const out = [];
-
-  // preferuj "after" jako aktualny stan, jak brak – ostatni pomiar
   const cur = after || session.measurements[session.measurements.length-1] || null;
 
-  // jeśli mamy PRZED i PO – pokaż różnice
   if(before && after){
     if(before.knee!=null && after.knee!=null){
       const dk = after.knee - before.knee;
@@ -75,7 +87,13 @@ function renderReco(session, before, after){
     }
   }
 
-  // Dodatkowo – przypomnij instrukcje PRZED/PO (to jest “mięso” raportu)
+  // Zmiany mechaniczne (jeśli zapisane)
+  if(after && after.change){
+    const ct = changeText(after);
+    if(ct) out.push(ct.replace(/\n/g, " • "));
+  }
+
+  // Instruktor PRZED/PO
   if(before){
     const it = instructorText(before);
     if(it) out.push(`PRZED → ${it.replace("Instruktor: ","")}`);
@@ -85,9 +103,8 @@ function renderReco(session, before, after){
     if(it) out.push(`PO → ${it.replace("Instruktor: ","")}`);
   }
 
-  // Jeśli nie ma instrukcji, użyj progów z pomiaru (a jak brak – z aktualnego session)
+  // fallback: progi + proste sugestie, gdyby ktoś nie miał instrukcji
   if(cur){
-    // progi: preferuj zapisane w pomiarze
     const p = (cur.preset && cur.preset.knee) ? cur.preset : presets(session.bike.discipline, session.bike.goal);
 
     if(cur.knee!=null){
@@ -143,6 +160,8 @@ export function renderReportUI(session, els){
       if(pt) bLines.push(pt);
       const it = instructorText(b);
       if(it) bLines.push(it);
+      const ct = changeText(b);
+      if(ct) bLines.push(ct);
     }
     if(a){
       aLines.push(angleText(a));
@@ -150,6 +169,8 @@ export function renderReportUI(session, els){
       if(pt) aLines.push(pt);
       const it = instructorText(a);
       if(it) aLines.push(it);
+      const ct = changeText(a);
+      if(ct) aLines.push(ct);
     }
 
     els.beforeAngles.textContent = b ? bLines.join("\n") : "—";
