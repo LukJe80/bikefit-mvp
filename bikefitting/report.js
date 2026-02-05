@@ -1,185 +1,185 @@
-import { presets, toLabelDiscipline, toLabelGoal } from "./presets.js";
+import { toLabelDiscipline, toLabelGoal } from "./presets.js";
 
-function fmtDate(ts){
-  const d = new Date(ts);
-  return d.toLocaleString("pl-PL", {
-    year:"numeric", month:"2-digit", day:"2-digit",
-    hour:"2-digit", minute:"2-digit"
-  });
+function fmtDeg(v){
+  if(v === null || v === undefined || !Number.isFinite(Number(v))) return "—";
+  return `${Number(v).toFixed(1)}°`;
+}
+function fmtNum(v){
+  if(v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if(!Number.isFinite(n)) return String(v);
+  return `${n}`;
 }
 
-function angleText(m){
-  const k = (m.knee==null ? "—" : (Math.round(m.knee)+"°"));
-  const e = (m.elbow==null ? "—" : (Math.round(m.elbow)+"°"));
-  const t = (m.torso==null ? "—" : (Math.round(m.torso)+"°"));
-  const s = (isFinite(m.stab) ? (m.stab+"%") : "—");
-  return `Kolano: ${k} • Łokieć: ${e} • Tułów: ${t} • Stabilność: ${s}`;
+function listMeasurements(session){
+  return (session.measurements || []).slice().sort((a,b)=>a.ts-b.ts);
 }
 
-function presetText(m){
-  const p = m.preset;
-  if(!p || !p.knee || !p.elbow || !p.torso) return "";
-  return `Progi: kolano ${p.knee[0]}–${p.knee[1]}°, łokieć ${p.elbow[0]}–${p.elbow[1]}°, tułów ${p.torso[0]}–${p.torso[1]}°.`;
+function buildSetupLines(setup){
+  if(!setup) return [];
+  const lines = [];
+  const add = (label, value, unit="") => {
+    if(value === null || value === undefined) return;
+    const s = String(value).trim();
+    if(!s) return;
+    lines.push({ label, value: s + unit });
+  };
+
+  add("Model / marka", setup.bikeModel);
+  add("Rozmiar ramy", setup.frameSize);
+  add("Reach (ramy)", setup.frameReach, setup.frameReach ? " mm" : "");
+  add("Stack (ramy)", setup.frameStack, setup.frameStack ? " mm" : "");
+
+  add("Mostek – długość", setup.stemLength, setup.stemLength ? " mm" : "");
+  add("Mostek – kąt", setup.stemAngle, setup.stemAngle ? "°" : "");
+
+  add("Kierownica – szerokość", setup.handlebarWidth, setup.handlebarWidth ? " mm" : "");
+  add("Kierownica – wysokość (opis)", setup.handlebarHeight);
+
+  add("Siodło – model", setup.saddleModel);
+  add("Wysokość siodła (od suportu)", setup.saddleHeight, setup.saddleHeight ? " mm" : "");
+  add("Offset sztycy", setup.seatpostOffset, setup.seatpostOffset ? " mm" : "");
+  add("Długość korby", setup.crankLength, setup.crankLength ? " mm" : "");
+
+  return lines;
 }
 
-function instructorText(m){
-  const title = (m.instructorTitle || "").trim();
-  const text  = (m.instructorText || "").trim();
-  if(!title && !text) return "";
-  if(title && text) return `Instruktor: ${title} — ${text}`;
-  return `Instruktor: ${title || text}`;
-}
-
-function changeText(m){
-  const c = m.change;
-  if(!c) return "";
-
-  const parts = [];
-  if(c.saddleH != null) parts.push(`Siodło: ${c.saddleH>0?"+":""}${c.saddleH} mm`);
-  if(c.saddleFB != null) parts.push(`Siodło przód/tył: ${c.saddleFB>0?"+":""}${c.saddleFB} mm`);
-  if(c.cockpitH != null) parts.push(`Kokpit: ${c.cockpitH>0?"+":""}${c.cockpitH} mm`);
-  if(c.stem != null) parts.push(`Mostek: ${c.stem>0?"+":""}${c.stem} mm`);
-
-  const head = parts.length ? ("Zmiany: " + parts.join(" • ")) : "Zmiany: —";
-  const note = c.note ? (`Notatka: ${c.note}`) : "";
-  return note ? (head + "\n" + note) : head;
-}
-
-function fillSelect(sel, measurements){
-  sel.innerHTML = "";
-  if(!measurements.length){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "Brak pomiarów";
-    sel.appendChild(opt);
-    sel.disabled = true;
+function renderSetup(el, setup){
+  if(!el) return;
+  const lines = buildSetupLines(setup);
+  if(lines.length === 0){
+    el.innerHTML = `<div class="small">Brak danych o rowerze klienta (opcjonalne).</div>`;
     return;
   }
-  sel.disabled = false;
-  measurements.forEach((m, idx) => {
-    const opt = document.createElement("option");
-    opt.value = m.id;
-    opt.textContent = `${idx+1}. ${m.label} • ${fmtDate(m.ts)}`;
-    sel.appendChild(opt);
-  });
+  el.innerHTML = `
+    <div class="setupGrid" style="margin-top:8px;">
+      <div class="setupBlock">
+        <div class="hmini">Rama / geometria</div>
+        ${lines.filter(x=>["Model / marka","Rozmiar ramy","Reach (ramy)","Stack (ramy)"].includes(x.label))
+          .map(x=>`<div class="small"><b>${x.label}:</b> ${x.value}</div>`).join("")}
+      </div>
+      <div class="setupBlock">
+        <div class="hmini">Kokpit</div>
+        ${lines.filter(x=>x.label.startsWith("Mostek") || x.label.startsWith("Kierownica"))
+          .map(x=>`<div class="small"><b>${x.label}:</b> ${x.value}</div>`).join("")}
+      </div>
+      <div class="setupBlock">
+        <div class="hmini">Siodło / napęd</div>
+        ${lines.filter(x=>x.label.startsWith("Siodło") || x.label.startsWith("Wysokość siodła") || x.label.startsWith("Offset") || x.label.startsWith("Długość korby"))
+          .map(x=>`<div class="small"><b>${x.label}:</b> ${x.value}</div>`).join("")}
+      </div>
+    </div>
+  `;
 }
 
-function getMeasurementById(session, id){
-  return session.measurements.find(m => m.id === id) || null;
+function makeOption(m){
+  const d = new Date(m.ts);
+  const hh = String(d.getHours()).padStart(2,'0');
+  const mm = String(d.getMinutes()).padStart(2,'0');
+  return `${m.label} • ${hh}:${mm}`;
 }
 
-function renderReco(session, before, after){
+function setShotUI(m, metaEl, imgEl, anglesEl){
+  if(!m){
+    metaEl.textContent = "—";
+    imgEl.removeAttribute("src");
+    anglesEl.textContent = "—";
+    return;
+  }
+
+  const d = new Date(m.ts);
+  const dt = d.toLocaleString();
+
+  const change = m.change ? [
+    (m.change.saddleH!=null ? `Siodło ↑/↓: ${m.change.saddleH} mm` : null),
+    (m.change.saddleFB!=null ? `Siodło przód/tył: ${m.change.saddleFB} mm` : null),
+    (m.change.cockpitH!=null ? `Kokpit ↑/↓: ${m.change.cockpitH} mm` : null),
+    (m.change.stem!=null ? `Mostek: ${m.change.stem} mm` : null),
+    (m.change.note ? `Notatka: ${m.change.note}` : null),
+  ].filter(Boolean).join(" • ") : "";
+
+  metaEl.textContent = `${dt}${change ? " • " + change : ""}`;
+  if(m.imgDataUrl) imgEl.src = m.imgDataUrl;
+
+  const preset = m.preset ? ` (cel: kolano ${m.preset.knee[0]}–${m.preset.knee[1]}°, łokieć ${m.preset.elbow[0]}–${m.preset.elbow[1]}°, tułów ${m.preset.torso[0]}–${m.preset.torso[1]}°)` : "";
+  anglesEl.textContent = `Kolano: ${fmtDeg(m.knee)} • Łokieć: ${fmtDeg(m.elbow)} • Tułów: ${fmtDeg(m.torso)} • Stabilność: ${fmtNum(m.stab?.toFixed?.(2) ?? m.stab)}${preset}`;
+}
+
+function simpleReco(before, after){
+  if(!before || !after) return ["Zapisz pomiary PRZED i PO, aby zobaczyć porównanie i rekomendacje."];
   const out = [];
-  const cur = after || session.measurements[session.measurements.length-1] || null;
 
-  if(before && after){
-    if(before.knee!=null && after.knee!=null){
-      const dk = after.knee - before.knee;
-      if(Math.abs(dk) >= 2) out.push(`Zmiana kąta kolana: ${dk>0?"+":""}${Math.round(dk)}° (PO vs PRZED).`);
-    }
-    if(before.elbow!=null && after.elbow!=null){
-      const de = after.elbow - before.elbow;
-      if(Math.abs(de) >= 2) out.push(`Zmiana kąta łokcia: ${de>0?"+":""}${Math.round(de)}° (PO vs PRZED).`);
-    }
-    if(before.torso!=null && after.torso!=null){
-      const dt = after.torso - before.torso;
-      if(Math.abs(dt) >= 2) out.push(`Zmiana kąta tułowia: ${dt>0?"+":""}${Math.round(dt)}° (PO vs PRZED).`);
-    }
+  const delta = (a,b)=> (Number.isFinite(a) && Number.isFinite(b)) ? (b-a) : null;
+  const dk = delta(before.knee, after.knee);
+  const de = delta(before.elbow, after.elbow);
+  const dt = delta(before.torso, after.torso);
+
+  if(dk != null) out.push(`Kąt kolana: ${fmtDeg(before.knee)} → ${fmtDeg(after.knee)} (zmiana ${dk>0?"+":""}${dk.toFixed(1)}°)`);
+  if(de != null) out.push(`Kąt łokcia: ${fmtDeg(before.elbow)} → ${fmtDeg(after.elbow)} (zmiana ${de>0?"+":""}${de.toFixed(1)}°)`);
+  if(dt != null) out.push(`Kąt tułowia: ${fmtDeg(before.torso)} → ${fmtDeg(after.torso)} (zmiana ${dt>0?"+":""}${dt.toFixed(1)}°)`);
+
+  if(after.change){
+    const c = after.change;
+    const lines = [];
+    if(c.saddleH!=null) lines.push(`Siodło ↑/↓: ${c.saddleH} mm`);
+    if(c.saddleFB!=null) lines.push(`Siodło przód/tył: ${c.saddleFB} mm`);
+    if(c.cockpitH!=null) lines.push(`Kokpit ↑/↓: ${c.cockpitH} mm`);
+    if(c.stem!=null) lines.push(`Mostek: ${c.stem} mm`);
+    if(lines.length) out.push(`Wykonane zmiany: ${lines.join(" • ")}`);
+    if(c.note) out.push(`Notatka: ${c.note}`);
   }
 
-  // Zmiany mechaniczne (jeśli zapisane)
-  if(after && after.change){
-    const ct = changeText(after);
-    if(ct) out.push(ct.replace(/\n/g, " • "));
+  if(after.instructorTitle || after.instructorText){
+    out.push(`Instruktor (PO): ${after.instructorTitle ? after.instructorTitle + " — " : ""}${after.instructorText || ""}`);
   }
 
-  // Instruktor PRZED/PO
-  if(before){
-    const it = instructorText(before);
-    if(it) out.push(`PRZED → ${it.replace("Instruktor: ","")}`);
-  }
-  if(after){
-    const it = instructorText(after);
-    if(it) out.push(`PO → ${it.replace("Instruktor: ","")}`);
-  }
-
-  // fallback: progi + proste sugestie, gdyby ktoś nie miał instrukcji
-  if(cur){
-    const p = (cur.preset && cur.preset.knee) ? cur.preset : presets(session.bike.discipline, session.bike.goal);
-
-    if(cur.knee!=null){
-      if(cur.knee < p.knee[0]) out.push("Siodło prawdopodobnie za nisko → podnieś 3–5 mm i re-test.");
-      else if(cur.knee > p.knee[1]) out.push("Siodło prawdopodobnie za wysoko → opuść 3–5 mm i re-test.");
-      else out.push("Wysokość siodła wygląda OK (wg kolana).");
-    }
-    if(cur.elbow!=null){
-      if(cur.elbow > p.elbow[1]) out.push("Możliwie za duży reach → krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm).");
-      else if(cur.elbow < p.elbow[0]) out.push("Pozycja mocno zebrana → jeśli to nie aero, test dłuższy mostek (+10 mm).");
-      else out.push("Reach / łokieć wygląda OK.");
-    }
-    if(cur.torso!=null){
-      if(cur.torso < p.torso[0]) out.push("Tułów zbyt agresywny → rozważ wyżej kokpit (+5–10 mm).");
-      else if(cur.torso > p.torso[1]) out.push("Tułów zbyt pionowo → jeśli chcesz sportowo, obniż kokpit (5–10 mm).");
-    }
-  }
-
-  if(!out.length) return "Brak danych — zrób pomiary w LIVE i zapisz „PRZED” i „PO”.";
-  return "<ul style='margin:8px 0 0 18px;'>" + out.map(x=>`<li>${x}</li>`).join("") + "</ul>";
+  return out.length ? out : ["Brak danych do porównania."];
 }
 
 export function renderReportUI(session, els){
-  els.rClient.textContent = session.client.name || "—";
-  els.rDate.textContent = session.client.date || "—";
-  els.rBike.textContent = `${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
-  els.rNotes.textContent = session.client.notes ? session.client.notes : "—";
+  els.rClient.textContent = session.client?.name || "—";
+  els.rDate.textContent = session.client?.date || "—";
+  els.rBike.textContent = `${toLabelDiscipline(session.bike?.discipline)} • ${toLabelGoal(session.bike?.goal)}`;
+  els.rNotes.textContent = session.client?.notes || "—";
 
-  fillSelect(els.beforeSel, session.measurements);
-  fillSelect(els.afterSel, session.measurements);
+  renderSetup(els.rSetup, session.bikeSetup);
 
-  if(session.measurements.length >= 1){
-    els.beforeSel.value = session.measurements[0].id;
-    els.afterSel.value = session.measurements[session.measurements.length-1].id;
+  const ms = listMeasurements(session);
+
+  const fillSel = (sel) => {
+    sel.innerHTML = "";
+    for(const m of ms){
+      const opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = makeOption(m);
+      sel.appendChild(opt);
+    }
+  };
+
+  fillSel(els.beforeSel);
+  fillSel(els.afterSel);
+
+  const findByLabel = (lbl) => ms.find(x=>x.label===lbl);
+  const beforeDefault = findByLabel("PRZED") || ms[0];
+  const afterDefault = findByLabel("PO") || (ms.length>1 ? ms[1] : ms[0]);
+
+  if(beforeDefault) els.beforeSel.value = beforeDefault.id;
+  if(afterDefault) els.afterSel.value = afterDefault.id;
+
+  const byId = (id)=> ms.find(x=>x.id===id) || null;
+
+  function update(){
+    const b = byId(els.beforeSel.value);
+    const a = byId(els.afterSel.value);
+
+    setShotUI(b, els.beforeMeta, els.beforeImg, els.beforeAngles);
+    setShotUI(a, els.afterMeta, els.afterImg, els.afterAngles);
+
+    const reco = simpleReco(b,a);
+    els.recoList.innerHTML = `<ul>${reco.map(x=>`<li>${x}</li>`).join("")}</ul>`;
   }
 
-  function updateCompare(){
-    const b = getMeasurementById(session, els.beforeSel.value);
-    const a = getMeasurementById(session, els.afterSel.value);
-
-    els.beforeMeta.textContent = b ? `${b.label} • ${fmtDate(b.ts)} • ${toLabelDiscipline(b.discipline)} • ${toLabelGoal(b.goal)}` : "—";
-    els.afterMeta.textContent  = a ? `${a.label} • ${fmtDate(a.ts)} • ${toLabelDiscipline(a.discipline)} • ${toLabelGoal(a.goal)}` : "—";
-
-    els.beforeImg.src = (b && b.imgDataUrl) ? b.imgDataUrl : "";
-    els.afterImg.src  = (a && a.imgDataUrl) ? a.imgDataUrl : "";
-
-    const bLines = [];
-    const aLines = [];
-
-    if(b){
-      bLines.push(angleText(b));
-      const pt = presetText(b);
-      if(pt) bLines.push(pt);
-      const it = instructorText(b);
-      if(it) bLines.push(it);
-      const ct = changeText(b);
-      if(ct) bLines.push(ct);
-    }
-    if(a){
-      aLines.push(angleText(a));
-      const pt = presetText(a);
-      if(pt) aLines.push(pt);
-      const it = instructorText(a);
-      if(it) aLines.push(it);
-      const ct = changeText(a);
-      if(ct) aLines.push(ct);
-    }
-
-    els.beforeAngles.textContent = b ? bLines.join("\n") : "—";
-    els.afterAngles.textContent  = a ? aLines.join("\n") : "—";
-
-    els.recoList.innerHTML = renderReco(session, b, a);
-  }
-
-  els.beforeSel.onchange = updateCompare;
-  els.afterSel.onchange = updateCompare;
-  updateCompare();
+  els.beforeSel.onchange = update;
+  els.afterSel.onchange = update;
+  update();
 }
