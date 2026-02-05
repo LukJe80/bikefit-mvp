@@ -98,7 +98,6 @@ function updatePresetUI(){
     hintEl.textContent = `Preset aktywny: ${toLabelDiscipline(session.bike.discipline)} / ${toLabelGoal(session.bike.goal)}.`;
   }
 
-  // global na przyszłość (PRO / druga kamera)
   window.BIKEFIT_PRESET = p;
 }
 /* ===== KONIEC PRESETÓW ===== */
@@ -128,7 +127,6 @@ function showStep(id){
   if(id==="bike"){
     updatePresetUI();
   }
-
   if(id==="report"){
     renderReport();
   }
@@ -185,7 +183,7 @@ const hintTitle = $("hintTitle");
 const hintText = $("hintText");
 const debugEl = $("debug");
 
-// 🔥 NOWE: pamiętamy ostatnią podpowiedź instruktora (żeby zapisać ją do pomiaru)
+// pamiętamy ostatnią podpowiedź instruktora (do snapshotu)
 let lastInstructor = { title: "", text: "", ts: 0 };
 
 function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
@@ -193,13 +191,7 @@ function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
 function setHint(title, text){
   hintTitle.textContent = title;
   hintText.textContent = text;
-
-  // zapamiętujemy dla snapshotu (PRZED/PO)
-  lastInstructor = {
-    title: String(title || ""),
-    text: String(text || ""),
-    ts: Date.now()
-  };
+  lastInstructor = { title: String(title||""), text: String(text||""), ts: Date.now() };
 }
 
 function setKpi(which, val){
@@ -228,6 +220,46 @@ function suggestLabel(){
   return "PO " + n;
 }
 
+/* ===== ZMIANY (log “co przestawiłem”) ===== */
+let pendingChange = null;
+
+function numOrNull(v){
+  if(v === "" || v == null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function openChangePanel(open){
+  const p = $("changePanel");
+  if(!p) return;
+  p.style.display = open ? "" : "none";
+}
+
+$("addChangeBtn")?.addEventListener("click", () => openChangePanel(true));
+$("chgCancel")?.addEventListener("click", () => openChangePanel(false));
+
+$("chgApply")?.addEventListener("click", () => {
+  pendingChange = {
+    saddleH:  numOrNull($("chgSaddleH")?.value),
+    saddleFB: numOrNull($("chgSaddleFB")?.value),
+    cockpitH: numOrNull($("chgCockpitH")?.value),
+    stem:     numOrNull($("chgStem")?.value),
+    note:     String($("chgNote")?.value || "").trim(),
+    ts: Date.now()
+  };
+  openChangePanel(false);
+  alert("Zapisano zmianę. Teraz kliknij „Zapisz pomiar” (PO), żeby ją dołączyć do pomiaru.");
+});
+
+function clearChangeInputs(){
+  if($("chgSaddleH")) $("chgSaddleH").value = "";
+  if($("chgSaddleFB")) $("chgSaddleFB").value = "";
+  if($("chgCockpitH")) $("chgCockpitH").value = "";
+  if($("chgStem")) $("chgStem").value = "";
+  if($("chgNote")) $("chgNote").value = "";
+}
+
+/* ===== zapisywanie pomiaru ===== */
 $("saveShot").addEventListener("click", () => {
   const m = live.getLastMetrics();
   if(!m || (!isFinite(m.stab) && m.knee==null)){
@@ -239,7 +271,6 @@ $("saveShot").addEventListener("click", () => {
   const label = suggestLabel();
   const ts = Date.now();
 
-  // zapisujemy też preset użyty w tym momencie
   const p = presets(session.bike.discipline, session.bike.goal);
 
   session.measurements.push({
@@ -250,29 +281,33 @@ $("saveShot").addEventListener("click", () => {
     discipline: session.bike.discipline,
     goal: session.bike.goal,
 
-    // kąty
     knee: m.knee,
     elbow: m.elbow,
     torso: m.torso,
     stab: m.stab,
 
-    // snapshot obrazu
     imgDataUrl: img,
 
-    // 🔥 NOWE: instruktor przy tym pomiarze
     instructorTitle: lastInstructor.title || "",
     instructorText: lastInstructor.text || "",
     instructorAt: lastInstructor.ts || ts,
 
-    // 🔥 NOWE: progi/preset dla tego pomiaru (żeby raport był spójny nawet po zmianie celu)
     preset: {
       knee: p.knee,
       elbow: p.elbow,
       torso: p.torso
-    }
+    },
+
+    // NOWE: zmiany przed tym pomiarem (jeśli dodane)
+    change: pendingChange
   });
 
   saveSession();
+
+  // wyczyść „pendingChange” po zapisie
+  pendingChange = null;
+  clearChangeInputs();
+
   alert("Zapisano pomiar: " + label);
 });
 
