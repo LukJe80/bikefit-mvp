@@ -16,7 +16,6 @@
 
 <body>
 <script>
-  // Gate: jeśli brak sesji -> wróć do logowania
   const AUTH_KEY = "bikefit_auth";
   function isAuthed(){
     try{
@@ -122,7 +121,6 @@
       </div>
     </div>
 
-    <!-- PRESETY progów -->
     <div class="card" style="margin-top:12px;">
       <div class="h">Presety progów (auto)</div>
       <div class="small" style="margin-top:6px;">
@@ -165,55 +163,50 @@
       <div class="small">
         Kamera uruchamia się dopiero tutaj. Ustaw bokiem tak, aby biodro–kolano–kostka były w kadrze.
       </div>
+
       <div class="liveBtns">
         <button id="editBike" class="btn secondary">Zmień ustawienia</button>
         <button id="startBtn" class="btn primary">Start kamery</button>
         <button id="stopBtn" class="btn">Stop</button>
-
-        <!-- NOWE -->
         <button id="addChangeBtn" class="btn secondary">Dodaj zmianę</button>
-
         <button id="saveShot" class="btn">Zapisz pomiar</button>
         <button id="toReport" class="btn primary">Raport →</button>
       </div>
+    </div>
 
-      <!-- NOWE: panel zmian -->
-      <div id="changePanel" class="card" style="display:none; margin-top:10px;">
-        <div class="h">Zmiana przed pomiarem (co przestawiłeś)</div>
+    <!-- PRO: panel zmian jako pełna szerokość sekcji LIVE (jak 2 okna obok siebie) -->
+    <div id="changePanel" class="card changePanelPro" style="display:none; margin-top:12px;">
+      <div class="h">Zmiana przed pomiarem (co przestawiłeś)</div>
 
-        <div class="fieldRow" style="margin-top:10px;">
-          <div>
-            <label>Siodło (mm) ↑/↓</label>
-            <input id="chgSaddleH" type="number" placeholder="np. -5 lub +3" />
-          </div>
-          <div>
-            <label>Siodło przód/tył (mm)</label>
-            <input id="chgSaddleFB" type="number" placeholder="np. -3 (do tyłu) / +3 (do przodu)" />
-          </div>
+      <div class="fieldRow" style="margin-top:10px;">
+        <div>
+          <label>Siodło (mm) ↑/↓</label>
+          <input id="chgSaddleH" type="number" placeholder="np. -5 lub +3" />
         </div>
-
-        <div class="fieldRow">
-          <div>
-            <label>Kokpit / podkładki (mm) ↑/↓</label>
-            <input id="chgCockpitH" type="number" placeholder="np. +10" />
-          </div>
-          <div>
-            <label>Mostek (mm) zmiana długości</label>
-            <input id="chgStem" type="number" placeholder="np. -10" />
-          </div>
+        <div>
+          <label>Siodło przód/tył (mm)</label>
+          <input id="chgSaddleFB" type="number" placeholder="np. -3 (do tyłu) / +3 (do przodu)" />
         </div>
-
-        <label>Notatka zmiany</label>
-        <textarea id="chgNote" placeholder="np. klient drętwieją dłonie, podniosłem kokpit..."></textarea>
-
-        <div class="navRow">
-          <button id="chgCancel" class="btn">Zamknij</button>
-          <button id="chgApply" class="btn primary">Zapisz zmianę</button>
+        <div>
+          <label>Kokpit / podkładki (mm) ↑/↓</label>
+          <input id="chgCockpitH" type="number" placeholder="np. +10" />
         </div>
-
-        <div class="small" style="opacity:.8;margin-top:8px;">
-          Tip: wartości dodatnie = w górę / do przodu / dłużej, ujemne = w dół / do tyłu / krócej.
+        <div>
+          <label>Mostek (mm) zmiana długości</label>
+          <input id="chgStem" type="number" placeholder="np. -10" />
         </div>
+      </div>
+
+      <label>Notatka zmiany</label>
+      <textarea id="chgNote" placeholder="np. klient drętwieją dłonie, podniosłem kokpit..."></textarea>
+
+      <div class="navRow">
+        <button id="chgCancel" class="btn">Zamknij</button>
+        <button id="chgApply" class="btn primary">Zapisz zmianę</button>
+      </div>
+
+      <div class="small" style="opacity:.8;margin-top:8px;">
+        Tip: wartości dodatnie = w górę / do przodu / dłużej, ujemne = w dół / do tyłu / krócej.
       </div>
     </div>
 
