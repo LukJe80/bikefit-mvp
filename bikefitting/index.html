@@ -6,6 +6,7 @@
   <title>Bikefit LIVE</title>
 
   <link rel="stylesheet" href="./app.css" />
+  <link rel="manifest" href="/manifest.webmanifest">
   <meta name="theme-color" content="#020617">
 
   <!-- MediaPipe -->
@@ -16,6 +17,7 @@
 
 <body>
 <script>
+  // Gate: jeśli brak sesji -> wróć do logowania
   const AUTH_KEY = "bikefit_auth";
   function isAuthed(){
     try{
@@ -87,7 +89,7 @@
         <input id="footCm" type="number" min="15" max="35" placeholder="np. 27.5" />
       </div>
       <div>
-        <label>Długość ramion (cm) (opcjonalnie, później)</label>
+        <label>Długość ramion (cm) (opcjonalnie)</label>
         <input id="armsCm" type="number" min="40" max="120" placeholder="np. 62" />
       </div>
     </div>
@@ -124,7 +126,7 @@
     <div class="card" style="margin-top:12px;">
       <div class="h">Presety progów (auto)</div>
       <div class="small" style="margin-top:6px;">
-        Na podstawie Dyscypliny i Celu ustawiamy zakresy (kolano/łokieć/tułów). Później dodamy tryb PRO z edycją.
+        Na podstawie Dyscypliny i Celu ustawiamy zakresy (kolano/łokieć/tułów). Tryb PRO (markery) dodamy później.
       </div>
 
       <div class="fieldRow" style="margin-top:10px;">
@@ -145,8 +147,81 @@
       <div class="small" id="presetHint" style="margin-top:8px;opacity:.85;">Wybierz Dyscyplinę i Cel.</div>
     </div>
 
-    <div class="small" style="margin-top:10px;">
-      W LIVE nie ma już wyborów — tylko znacznik typu <b>MTB • Neutral</b>. Zmiany robisz tutaj i przechodzisz dalej.
+    <!-- NOWE: Rower klienta (stan wyjściowy) -->
+    <div class="card" style="margin-top:12px;">
+      <div class="h">Rower klienta (stan wyjściowy – informacja)</div>
+      <div class="small" style="margin-top:6px;">
+        To są dane „z czym klient przyjechał”. Opcjonalne — nie wpływają na LIVE, ale pojawią się w raporcie.
+      </div>
+
+      <div class="setupGrid" style="margin-top:10px;">
+        <div class="setupBlock">
+          <div class="hmini">Rama / geometria</div>
+          <label>Model / marka (opcjonalnie)</label>
+          <input id="bikeModel" placeholder="np. Trek Domane / Giant TCR..." />
+
+          <div class="fieldRow" style="margin-top:8px;">
+            <div>
+              <label>Rozmiar ramy</label>
+              <input id="frameSize" placeholder="np. 56 / M / L" />
+            </div>
+            <div>
+              <label>Reach (mm) (opcjonalnie)</label>
+              <input id="frameReach" placeholder="np. 380" />
+            </div>
+          </div>
+
+          <label>Stack (mm) (opcjonalnie)</label>
+          <input id="frameStack" placeholder="np. 580" />
+        </div>
+
+        <div class="setupBlock">
+          <div class="hmini">Kokpit</div>
+
+          <div class="fieldRow">
+            <div>
+              <label>Długość mostka (mm)</label>
+              <input id="stemLength" placeholder="np. 100" />
+            </div>
+            <div>
+              <label>Kąt mostka (°)</label>
+              <input id="stemAngle" placeholder="np. -6 / +6" />
+            </div>
+          </div>
+
+          <div class="fieldRow">
+            <div>
+              <label>Szerokość kierownicy (mm)</label>
+              <input id="handlebarWidth" placeholder="np. 420" />
+            </div>
+            <div>
+              <label>Wysokość kierownicy (opis)</label>
+              <input id="handlebarHeight" placeholder="np. 10 mm podkładek / 95 cm od ziemi" />
+            </div>
+          </div>
+        </div>
+
+        <div class="setupBlock">
+          <div class="hmini">Siodło / napęd</div>
+
+          <label>Model siodła (opcjonalnie)</label>
+          <input id="saddleModel" placeholder="np. Fizik / Specialized..." />
+
+          <div class="fieldRow" style="margin-top:8px;">
+            <div>
+              <label>Wysokość siodła od suportu (mm)</label>
+              <input id="saddleHeight" placeholder="np. 745" />
+            </div>
+            <div>
+              <label>Offset sztycy (mm)</label>
+              <input id="seatpostOffset" placeholder="np. 0 / 15 / 20" />
+            </div>
+          </div>
+
+          <label>Długość korby (mm)</label>
+          <input id="crankLength" placeholder="np. 170 / 172.5 / 175" />
+        </div>
+      </div>
     </div>
 
     <div class="navRow">
@@ -163,7 +238,6 @@
       <div class="small">
         Kamera uruchamia się dopiero tutaj. Ustaw bokiem tak, aby biodro–kolano–kostka były w kadrze.
       </div>
-
       <div class="liveBtns">
         <button id="editBike" class="btn secondary">Zmień ustawienia</button>
         <button id="startBtn" class="btn primary">Start kamery</button>
@@ -174,7 +248,7 @@
       </div>
     </div>
 
-    <!-- PRO: panel zmian jako pełna szerokość sekcji LIVE (jak 2 okna obok siebie) -->
+    <!-- Panel zmian (pełna szerokość) -->
     <div id="changePanel" class="card changePanelPro" style="display:none; margin-top:12px;">
       <div class="h">Zmiana przed pomiarem (co przestawiłeś)</div>
 
@@ -273,6 +347,10 @@
       <div class="small"><b>Dyscyplina / cel:</b> <span id="rBike">—</span></div>
       <div class="divider"></div>
       <div class="small"><b>Notatki:</b> <span id="rNotes">—</span></div>
+
+      <div class="divider"></div>
+      <div class="h" style="margin:0;">Rower klienta (stan wyjściowy)</div>
+      <div id="rSetup"></div>
     </div>
 
     <div style="margin-top:12px;" class="card">
