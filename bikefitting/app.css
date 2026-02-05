@@ -17,7 +17,8 @@ body{
   background: var(--bg);
   color: var(--text);
 }
-.page{ max-width: 1280px; margin: 0 auto; padding: 14px; }
+
+.page{ max-width:1280px; margin:0 auto; padding:14px; }
 
 .top{
   display:flex;
@@ -27,6 +28,7 @@ body{
   justify-content:space-between;
   margin-bottom:10px;
 }
+
 .title{
   font-size:18px;
   color:var(--accent);
@@ -34,8 +36,8 @@ body{
   display:flex;
   align-items:center;
   gap:10px;
-  letter-spacing:.2px;
 }
+
 .bar{ display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
 
 .btn{
@@ -49,216 +51,202 @@ body{
   font-weight:900;
   transition:.15s ease;
   user-select:none;
-  white-space:nowrap;
 }
 .btn:hover{ transform:translateY(-1px); border-color:rgba(37,99,235,0.45); }
 .btn.primary{
   border-color:rgba(37,99,235,0.75);
-  box-shadow:0 0 0 3px rgba(37,99,235,0.18);
+  background:linear-gradient(180deg, rgba(37,99,235,0.35), rgba(37,99,235,0.10));
 }
-.btn.danger:hover{ border-color:rgba(239,68,68,0.55); }
-.btn.secondary:hover{ border-color:rgba(245,158,11,0.45); }
-
+.btn.primary:hover{ border-color:rgba(37,99,235,0.95); }
+.btn.secondary{
+  border-color:rgba(255,255,255,0.15);
+}
+.btn.danger{
+  border-color:rgba(239,68,68,0.55);
+  background:linear-gradient(180deg, rgba(239,68,68,0.22), rgba(239,68,68,0.08));
+}
 .pill{
-  padding:8px 12px;
-  border-radius:999px;
-  font-size:12px;
-  font-weight:900;
-  border:1px solid rgba(255,255,255,0.14);
-  background:rgba(0,0,0,0.35);
-  white-space:nowrap;
-  display:flex;
+  display:inline-flex;
   align-items:center;
-  gap:8px;
+  gap:10px;
+  padding:10px 12px;
+  border-radius:14px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.04);
+  font-weight:900;
 }
-.dot{ width:10px; height:10px; border-radius:50%; background:var(--bad); }
-.dot.on{ background:var(--ok); }
+.dot{
+  width:10px; height:10px; border-radius:999px;
+  background:rgba(255,255,255,0.25);
+  box-shadow:0 0 0 3px rgba(255,255,255,0.06);
+}
+.dot.on{ background:var(--ok); box-shadow:0 0 0 3px rgba(74,222,128,0.18); }
 
 .badge{
   display:inline-flex;
   align-items:center;
-  gap:8px;
   padding:8px 12px;
   border-radius:999px;
-  border:1px solid rgba(37,99,235,0.65);
-  background: rgba(37,99,235,0.12);
+  background:rgba(37,99,235,0.18);
+  border:1px solid rgba(37,99,235,0.35);
   font-weight:900;
-  font-size:12px;
-  color:#e5e7eb;
 }
 
 .steps{
   display:flex;
-  flex-wrap:wrap;
   gap:8px;
-  align-items:center;
-  margin: 10px 0 14px;
+  flex-wrap:wrap;
+  margin:10px 0 14px;
 }
 .stepTag{
   border:1px solid rgba(255,255,255,0.12);
-  background: rgba(0,0,0,0.25);
-  padding:8px 12px;
+  background:rgba(255,255,255,0.03);
   border-radius:999px;
-  font-size:12px;
-  font-weight:900;
-  color: rgba(229,231,235,0.85);
+  padding:8px 12px;
   cursor:pointer;
-  user-select:none;
-  white-space:nowrap;
+  font-weight:900;
+  opacity:.85;
 }
 .stepTag.active{
-  border-color: rgba(37,99,235,0.70);
-  box-shadow:0 0 0 3px rgba(37,99,235,0.18);
-  color:#e5e7eb;
+  border-color:rgba(37,99,235,0.65);
+  background:rgba(37,99,235,0.15);
+  opacity:1;
 }
 
 .card{
-  background:var(--panel);
-  border:1px solid var(--panelBorder);
-  border-radius:16px;
+  border:1px solid rgba(255,255,255,0.10);
+  background:rgba(255,255,255,0.04);
+  border-radius:18px;
   padding:14px;
 }
+
 .h{
   margin:0 0 10px 0;
-  font-size:14px;
+  font-size:16px;
   font-weight:900;
-  letter-spacing:.3px;
-  text-transform:uppercase;
-  color:#93c5fd;
+  color:var(--text);
 }
-.small{ color:var(--muted); font-size:13px; line-height:1.35; }
-
-label{
-  display:block;
-  margin:10px 0 6px;
-  font-size:12px;
-  letter-spacing:.5px;
-  text-transform:uppercase;
-  color:#93c5fd;
-  font-weight:900;
-}
-input, textarea, select{
+.small{ font-size:13px; color:var(--muted); }
+label{ display:block; font-size:12px; color:var(--muted); margin:10px 0 6px; }
+input, select, textarea{
   width:100%;
-  padding:12px 14px;
+  padding:10px 12px;
   border-radius:14px;
-  border:1px solid rgba(255,255,255,0.10);
-  background:rgba(255,255,255,0.03);
+  border:1px solid rgba(255,255,255,0.12);
+  background:rgba(2,6,23,0.65);
   color:var(--text);
   outline:none;
-  font-size:14px;
 }
-textarea{ min-height: 90px; resize: vertical; }
+textarea{ min-height:90px; resize:vertical; }
 
-.fieldRow{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
-@media (max-width: 680px){ .fieldRow{ grid-template-columns:1fr; } }
+.fieldRow{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:12px;
+}
+@media (max-width: 900px){
+  .fieldRow{ grid-template-columns: 1fr; }
+}
 
 .navRow{
   display:flex;
+  justify-content:space-between;
   gap:10px;
   margin-top:12px;
-  justify-content:space-between;
-  align-items:center;
 }
-.rightBtns{ display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; }
 
-.grid{ display:grid; grid-template-columns:1.2fr .8fr; gap:14px; }
-@media (max-width: 980px){ .grid{ grid-template-columns:1fr; } }
+.grid{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+}
+@media (max-width: 1100px){
+  .grid{ grid-template-columns: 1fr; }
+}
 
 .videoWrap{
   position:relative;
   width:100%;
-  aspect-ratio:16/9;
-  background:#000;
-  border-radius:14px;
+  aspect-ratio: 16/9;
+  border-radius:16px;
   overflow:hidden;
+  background:#000;
   border:1px solid rgba(255,255,255,0.10);
 }
 video, canvas{
-  position:absolute; inset:0;
-  width:100%; height:100%;
-  object-fit:contain;
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
 }
+
+.instr h3{ margin:0 0 8px 0; font-size:14px; }
+.big{ font-weight:900; font-size:18px; margin:4px 0; }
+
+.kpis{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:10px;
+  margin-top:10px;
+}
+.kpi .label{ margin:0; font-size:12px; color:var(--muted); }
+.kpi .val{ font-size:22px; font-weight:900; margin-top:6px; }
+.kpi .desc{ font-size:12px; color:var(--muted); margin-top:6px; }
+
+.debug{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
 
 .liveTop{
   display:flex;
-  flex-wrap:wrap;
   gap:10px;
   align-items:center;
   justify-content:space-between;
-}
-.liveBtns{
-  display:flex;
-  gap:10px;
   flex-wrap:wrap;
-  justify-content:flex-end;
 }
+.liveBtns{ display:flex; gap:8px; flex-wrap:wrap; }
 
-.instr{
-  border:1px solid rgba(37,99,235,0.35);
-  background:rgba(37,99,235,0.08);
-  border-radius:14px;
-  padding:14px;
+.reportBox .divider{
+  height:1px;
+  background:rgba(255,255,255,0.10);
+  margin:10px 0;
 }
-.instr h3{
-  margin:0 0 6px 0;
-  font-size:12px;
-  text-transform:uppercase;
-  letter-spacing:.5px;
-  color:#93c5fd;
-}
-.instr .big{ font-size:22px; font-weight:900; margin:0 0 6px 0; color:var(--text); }
-
-.kpis{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px; }
-@media (max-width: 980px){ .kpis{ grid-template-columns:1fr; } }
-.kpi{ padding:12px; }
-.kpi .label{ font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#93c5fd; font-weight:900; }
-.kpi .val{ font-size:26px; font-weight:900; margin-top:6px; }
-.kpi .desc{ margin-top:6px; color:var(--muted); font-size:13px; }
-
-.debug{
-  margin-top:10px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size:12px;
-  white-space:pre-wrap;
-  padding:12px;
-}
-
-.reportBox{
-  padding:14px;
-  border-radius:14px;
-  border:1px dashed rgba(255,255,255,0.18);
-  background: rgba(0,0,0,0.18);
-}
-.divider{ height:1px; background:rgba(255,255,255,0.10); margin:10px 0; }
 .shots{
   display:grid;
   grid-template-columns: 1fr 1fr;
-  gap:10px;
+  gap:12px;
   margin-top:10px;
 }
-@media (max-width: 980px){ .shots{ grid-template-columns:1fr; } }
+@media (max-width: 900px){
+  .shots{ grid-template-columns: 1fr; }
+}
 .shotImg{
   width:100%;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,0.12);
-  background:#000;
-
-}
-/* ===== Bikefit PRO: panel "Zmiana przed pomiarem" full width + ładniejszy układ ===== */
-.changePanelPro{
-  width: 100%;
+  border-radius:14px;
+  margin-top:8px;
+  border:1px solid rgba(255,255,255,0.10);
 }
 
-.changePanelPro .fieldRow{
-  flex-wrap: wrap;
+/* ===== Bikefit: Rower klienta (stan wyjściowy) ===== */
+.setupGrid{
+  display:grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap:12px;
 }
+@media (max-width: 900px){
+  .setupGrid{ grid-template-columns: 1fr; }
+}
+.setupBlock{
+  border:1px solid var(--panelBorder);
+  background: var(--panel);
+  border-radius:16px;
+  padding:12px;
+}
+.setupBlock .hmini{
+  font-weight:900;
+  margin:0 0 8px 0;
+  color:var(--text);
+}
+.setupBlock label{ margin-top:8px; }
 
-.changePanelPro .fieldRow > div{
-  flex: 1;
-  min-width: 240px;
-}
-
-.changePanelPro input,
-.changePanelPro textarea{
-  width: 100%;
-}
+/* Ulepszenie panelu zmian */
+.changePanelPro textarea{ min-height:70px; }
