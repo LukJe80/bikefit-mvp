@@ -242,4 +242,23 @@ video, canvas{
   border-radius:12px;
   border:1px solid rgba(255,255,255,0.12);
   background:#000;
+
+}
+/* ===== Bikefit PRO: panel "Zmiana przed pomiarem" full width + ładniejszy układ ===== */
+.changePanelPro{
+  width: 100%;
+}
+
+.changePanelPro .fieldRow{
+  flex-wrap: wrap;
+}
+
+.changePanelPro .fieldRow > div{
+  flex: 1;
+  min-width: 240px;
+}
+
+.changePanelPro input,
+.changePanelPro textarea{
+  width: 100%;
 }
