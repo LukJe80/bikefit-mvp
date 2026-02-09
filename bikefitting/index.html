@@ -2,205 +2,349 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bikefit – logowanie</title>
-  <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#0b1220">
-  <style>
-:root{
-  --accent:#2563eb;
-  --accentHover:#1d4ed8;
-  --bg:#020617;
-  --text:#e5e7eb;
-  --panel: rgba(255,255,255,0.05);
-  --panelBorder: rgba(255,255,255,0.10);
-  --muted: rgba(229,231,235,0.7);
-}
-html, body {
-  height: 100%;
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: radial-gradient(1200px 700px at 20% 20%, rgba(37,99,235,0.12), transparent 55%),
-              radial-gradient(1200px 700px at 80% 70%, rgba(59,130,246,0.10), transparent 55%),
-              #020617;
-  color: var(--text);
-}
-.wrap{
-  min-height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:24px;
-}
-.card{
-  width:min(520px, 100%);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 18px;
-  padding: 22px;
-  backdrop-filter: blur(10px);
-}
-h1{ margin:0 0 8px 0; font-size:22px; }
-p{ margin:0 0 18px 0; opacity:.85; }
-label{ display:block; font-size:13px; opacity:.85; margin:10px 0 6px; }
-input{
-  width:100%;
-  padding:12px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.25);
-  color: var(--text);
-  outline:none;
-}
-.row{ display:flex; gap:10px; align-items:center; margin-top:14px; }
-.btn{
-  appearance:none;
-  border:1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: var(--text);
-  padding:12px 14px;
-  border-radius: 12px;
-  cursor:pointer;
-  font-weight:700;
-  user-select:none;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn.primary{
-  background: var(--accent);
-  border-color: rgba(0,0,0,0.0);
-}
-.btn.primary:hover{ background: var(--accentHover); }
-.small{ font-size:12px; opacity:.75; margin-top:10px; }
-.err{
-  display:none;
-  margin-top:10px;
-  padding:10px 12px;
-  border-radius: 12px;
-  border:1px solid rgba(248,113,113,0.35);
-  background: rgba(248,113,113,0.10);
-  color:#fecaca;
-}
-.debug{
-  margin-top:10px;
-  font-size:12px;
-  opacity:.75;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  white-space:pre-wrap;
-  padding:10px 12px;
-  border-radius:12px;
-  border:1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.20);
-  display:none;
-}
-  </style>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bikefit LIVE</title>
+
+  <link rel="stylesheet" href="./app.css" />
+  <meta name="theme-color" content="#020617">
+
+  <!-- MediaPipe -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
+
 <body>
-
-<div class="wrap">
-  <div class="card">
-    <h1>Bikefit LIVE</h1>
-    <p>Logowanie (lokalnie). Po zalogowaniu wejdziesz do aplikacji LIVE.</p>
-
-    <label>PIN</label>
-    <input id="pin" inputmode="numeric" placeholder="Wpisz PIN..." autocomplete="off" />
-
-    <div class="row">
-      <button type="button" class="btn primary" id="login">Zaloguj</button>
-      <button type="button" class="btn" id="clear">Wyczyść</button>
-    </div>
-
-    <div id="err" class="err">Błędny PIN.</div>
-    <div id="dbg" class="debug"></div>
-
-    <div class="small">
-      Tip: PIN jest prostą bramką (localStorage). Później możemy podpiąć Supabase/login.
-    </div>
-  </div>
-</div>
-
 <script>
-(() => {
-  // ✅ globalne, żeby nie było "already declared"
-  window.AUTH_KEY = window.AUTH_KEY || "bikefit_auth";
-  const AUTH_KEY = window.AUTH_KEY;
-
-  const PIN = "1234"; // <- zmień jeśli chcesz
-  const DEBUG = true;
-
-  const $ = (id)=>document.getElementById(id);
-
-  function dbg(msg){
-    if(!DEBUG) return;
-    const el = $("dbg");
-    el.style.display = "block";
-    el.textContent = msg;
-  }
-
-  function setErr(on){
-    const err = $("err");
-    err.style.display = on ? "block" : "none";
-  }
-
-  function isAuthed(){
-    try{
-      const raw = localStorage.getItem(AUTH_KEY);
-      if(!raw) return false;
-      const obj = JSON.parse(raw);
-      return obj && obj.exp && obj.exp > Date.now();
-    }catch(e){ return false; }
-  }
-
-  function doLogin(){
-    const input = $("pin");
-    const v = (input.value || "").trim();
-
-    if(v !== PIN){
-      setErr(true);
-      dbg("DBG: klik działa, ale PIN zły.");
-      return;
+  // Gate: jeśli brak sesji -> wróć do logowania
+  (function(){
+    const AUTH_KEY = "bikefit_auth";
+    function isAuthed(){
+      try{
+        const raw = localStorage.getItem(AUTH_KEY);
+        if(!raw) return false;
+        const obj = JSON.parse(raw);
+        return obj && obj.exp && obj.exp > Date.now();
+      }catch(e){ return false; }
     }
-
-    setErr(false);
-    const exp = Date.now() + 12*60*60*1000; // 12h
-    localStorage.setItem(AUTH_KEY, JSON.stringify({ exp }));
-
-    dbg("DBG: zapisano sesję -> /bikefitting/");
-    location.href = "/bikefitting/";
-  }
-
-  function doClear(){
-    $("pin").value = "";
-    setErr(false);
-    dbg("DBG: wyczyszczono pole PIN.");
-  }
-
-  window.addEventListener("DOMContentLoaded", () => {
-    dbg("DBG: DOMContentLoaded OK.");
-
-    if(isAuthed()){
-      dbg("DBG: już zalogowany -> /bikefitting/");
-      location.replace("/bikefitting/");
-      return;
+    if(!isAuthed()){
+      location.replace("/");
     }
-
-    const btnLogin = $("login");
-    const btnClear = $("clear");
-    const pin = $("pin");
-
-    const bind = (el, fn) => {
-      el.addEventListener("click", fn);
-      el.addEventListener("pointerup", fn);
-      el.addEventListener("touchend", fn, {passive:true});
-    };
-
-    bind(btnLogin, doLogin);
-    bind(btnClear, doClear);
-    pin.addEventListener("keydown", (e)=>{ if(e.key==="Enter") doLogin(); });
-
-    dbg("DBG: eventy podpięte. Kliknij Zaloguj/Wyczyść.");
-  });
-})();
+  })();
 </script>
 
+<div class="page">
+  <div class="top">
+    <div class="title">Bikefit LIVE</div>
+    <div class="bar">
+      <button id="logoutBtn" class="btn danger">Wyloguj</button>
+      <div class="pill"><span id="dot" class="dot"></span> Status: <span id="status">OFF</span></div>
+      <div id="badge" class="badge" style="display:none;">—</div>
+    </div>
+  </div>
+
+  <div class="steps" id="stepsBar"></div>
+
+  <!-- KROK 1 -->
+  <section class="card step" id="step-client">
+    <h2 class="h">Klient</h2>
+
+    <div class="fieldRow">
+      <div>
+        <label>Imię / nazwisko (opcjonalnie)</label>
+        <input id="clientName" placeholder="np. Jan Kowalski" />
+      </div>
+      <div>
+        <label>Data sesji</label>
+        <input id="sessionDate" type="date" />
+      </div>
+    </div>
+
+    <label>Notatki</label>
+    <textarea id="clientNotes" placeholder='np. ból przodu kolana, drętwieją dłonie, chce bardziej komfort...'></textarea>
+
+    <div class="navRow">
+      <div></div>
+      <button class="btn primary" id="toAnthro">Dalej → Antropometria</button>
+    </div>
+  </section>
+
+  <!-- KROK 2 -->
+  <section class="card step" id="step-anthro" style="display:none;">
+    <h2 class="h">Antropometria</h2>
+
+    <div class="fieldRow">
+      <div>
+        <label>Wzrost (cm)</label>
+        <input id="heightCm" type="number" min="120" max="230" placeholder="np. 178" />
+      </div>
+      <div>
+        <label>Przekrok (cm)</label>
+        <input id="inseamCm" type="number" min="50" max="130" placeholder="np. 83" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Długość stopy (cm) (opcjonalnie)</label>
+        <input id="footCm" type="number" min="15" max="35" placeholder="np. 27.5" />
+      </div>
+      <div>
+        <label>Długość ramion (cm) (opcjonalnie)</label>
+        <input id="armsCm" type="number" min="40" max="120" placeholder="np. 62" />
+      </div>
+    </div>
+
+    <div class="navRow">
+      <button class="btn" id="backClient">← Wróć</button>
+      <button class="btn primary" id="toBike">Dalej → Bike / Dyscyplina</button>
+    </div>
+  </section>
+
+  <!-- KROK 3 -->
+  <section class="card step" id="step-bike" style="display:none;">
+    <h2 class="h">Bike / Dyscyplina</h2>
+
+    <div class="fieldRow">
+      <div>
+        <label>Dyscyplina</label>
+        <select id="discipline">
+          <option value="road">SZOSA</option>
+          <option value="gravel">GRAVEL</option>
+          <option value="mtb">MTB</option>
+        </select>
+      </div>
+      <div>
+        <label>Cel</label>
+        <select id="goal">
+          <option value="comfort">Komfort</option>
+          <option value="neutral" selected>Neutral</option>
+          <option value="aero">Aero</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="divider" style="margin:14px 0;"></div>
+    <div class="h">Rower klienta (stan wyjściowy) – info do raportu</div>
+    <div class="small" style="margin-bottom:10px;">
+      Te pola <b>nie zmieniają obliczeń</b> — służą tylko do raportu i dla klienta.
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Model / typ roweru (opcjonalnie)</label>
+        <input id="bikeModel" placeholder="np. Giant TCR / Trek Fuel EX" />
+      </div>
+      <div>
+        <label>Rozmiar ramy (opcjonalnie)</label>
+        <input id="frameSize" placeholder="np. 54 / M / 19&quot;" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Długość mostka (mm)</label>
+        <input id="stemLen" type="number" min="40" max="160" placeholder="np. 100" />
+      </div>
+      <div>
+        <label>Kąt mostka (°) (np. -6 / +6)</label>
+        <input id="stemAng" type="number" min="-30" max="30" placeholder="np. -6" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Szerokość kierownicy (mm)</label>
+        <input id="barWidth" type="number" min="360" max="820" placeholder="np. 420" />
+      </div>
+      <div>
+        <label>Wysokość kierownicy (mm) (opcjonalnie)</label>
+        <input id="barHeight" type="number" min="0" max="500" placeholder="np. 110" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Wysokość siodła (mm od suportu)</label>
+        <input id="saddleHeight" type="number" min="500" max="950" placeholder="np. 735" />
+      </div>
+      <div>
+        <label>Setback siodła (mm) (opcjonalnie)</label>
+        <input id="saddleSetback" type="number" min="-50" max="150" placeholder="np. 45" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Kąt siodła (°) (np. +2 / -2)</label>
+        <input id="saddleTilt" type="number" min="-10" max="10" placeholder="np. 0" />
+      </div>
+      <div>
+        <label>Długość korby (mm)</label>
+        <input id="crankLen" type="number" min="150" max="200" placeholder="np. 172.5" />
+      </div>
+    </div>
+
+    <label>Uwagi: bloki / ustawienia / co ważne</label>
+    <textarea id="setupNotes" placeholder="np. bloki: 2mm w tył, 1mm do środka; siodło: +2°; itp."></textarea>
+
+    <div class="navRow">
+      <button class="btn" id="backAnthro">← Wróć</button>
+      <button class="btn primary" id="toLive">Dalej → Bikefitting LIVE</button>
+    </div>
+  </section>
+
+  <!-- KROK 4 -->
+  <section class="card step" id="step-live" style="display:none;">
+    <h2 class="h">Bikefitting LIVE</h2>
+
+    <div class="liveTop">
+      <div class="small">
+        Kamera uruchamia się dopiero tutaj. Ustaw bokiem tak, aby biodro–kolano–kostka były w kadrze.
+      </div>
+      <div class="liveBtns">
+        <button id="editBike" class="btn secondary">Zmień ustawienia</button>
+        <button id="startBtn" class="btn primary">Start kamery</button>
+        <button id="stopBtn" class="btn">Stop</button>
+        <button id="addChangeBtn" class="btn">Dodaj zmianę</button>
+        <button id="saveShot" class="btn">Zapisz pomiar</button>
+        <button id="toReport" class="btn primary">Raport →</button>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:12px;">
+      <div class="card">
+        <div class="h">Podgląd + punkty</div>
+        <div class="videoWrap">
+          <video id="video" playsinline muted></video>
+          <canvas id="canvas"></canvas>
+        </div>
+        <div class="small" style="margin-top:8px">
+          Jeśli obraz czarny: Chrome → kłódka → Kamera: <b>Zezwalaj</b> + zamknij Teams/Zoom/OBS.
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="h">Instruktor</div>
+
+        <div class="instr">
+          <h3>Wskazówka</h3>
+          <div id="hintTitle" class="big">Uruchom kamerę</div>
+          <div id="hintText" class="small">Kliknij „Start kamery”.</div>
+        </div>
+
+        <div class="kpis">
+          <div class="card kpi">
+            <div class="label">Kąt kolana</div>
+            <div id="kneeVal" class="val">—</div>
+            <div class="desc">Do oceny wysokości siodła.</div>
+          </div>
+
+          <div class="card kpi">
+            <div class="label">Kąt łokcia</div>
+            <div id="elbowVal" class="val">—</div>
+            <div class="desc">Do oceny reach / mostka.</div>
+          </div>
+
+          <div class="card kpi">
+            <div class="label">Kąt tułowia</div>
+            <div id="torsoVal" class="val">—</div>
+            <div class="desc">Do oceny drop / wysokości kokpitu.</div>
+          </div>
+
+          <div class="card kpi">
+            <div class="label">Stabilność</div>
+            <div id="stabVal" class="val">—</div>
+            <div class="desc">Pewność punktów (widoczność).</div>
+          </div>
+        </div>
+
+        <div class="small" style="margin-top:10px">Debug:</div>
+        <div id="debug" class="card debug">DBG: gotowe.</div>
+      </div>
+    </div>
+
+    <!-- modal: dodaj zmianę -->
+    <div id="changeModal" class="modal" style="display:none;">
+      <div class="modalInner card">
+        <div class="h">Dodaj zmianę (do raportu)</div>
+        <div class="small">Np. „Mostek +10mm”, „Siodło -2mm”, „Bloki 2mm w tył”.</div>
+        <textarea id="changeText" placeholder="Wpisz zmianę..." style="margin-top:10px;"></textarea>
+        <div class="navRow" style="margin-top:10px;">
+          <button class="btn" id="cancelChange">Anuluj</button>
+          <button class="btn primary" id="saveChange">Zapisz</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- KROK 5 -->
+  <section class="card step" id="step-report" style="display:none;">
+    <h2 class="h">Raport</h2>
+
+    <div class="reportBox">
+      <div class="small"><b>Klient:</b> <span id="rClient">—</span></div>
+      <div class="small"><b>Data:</b> <span id="rDate">—</span></div>
+      <div class="small"><b>Dyscyplina / cel:</b> <span id="rBike">—</span></div>
+      <div class="divider"></div>
+      <div class="small"><b>Notatki:</b> <span id="rNotes">—</span></div>
+    </div>
+
+    <div style="margin-top:12px;" class="card">
+      <div class="h">Rower klienta (stan wyjściowy)</div>
+      <div id="rSetup" class="small">—</div>
+    </div>
+
+    <div style="margin-top:12px;" class="card">
+      <div class="h">Zmiany w trakcie sesji</div>
+      <div id="rChanges" class="small">—</div>
+    </div>
+
+    <div style="margin-top:12px;" class="card">
+      <div class="h">Pomiary (przed/po)</div>
+      <div class="small">Zapisz minimum 2 pomiary w LIVE („Zapisz pomiar”), aby mieć „PRZED” i „PO”.</div>
+
+      <div class="fieldRow" style="margin-top:10px;">
+        <div>
+          <label>PRZED</label>
+          <select id="beforeSel"></select>
+        </div>
+        <div>
+          <label>PO</label>
+          <select id="afterSel"></select>
+        </div>
+      </div>
+
+      <div class="shots">
+        <div class="card">
+          <div class="small"><b>PRZED:</b> <span id="beforeMeta">—</span></div>
+          <img id="beforeImg" class="shotImg" alt="before" />
+          <div class="small" id="beforeAngles">—</div>
+        </div>
+        <div class="card">
+          <div class="small"><b>PO:</b> <span id="afterMeta">—</span></div>
+          <img id="afterImg" class="shotImg" alt="after" />
+          <div class="small" id="afterAngles">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px;" class="card">
+      <div class="h">Rekomendacje</div>
+      <div id="recoList" class="small">—</div>
+    </div>
+
+    <div class="navRow">
+      <button class="btn" id="backLive">← Wróć do LIVE</button>
+      <div class="rightBtns">
+        <button class="btn" id="clearSession">Wyczyść sesję</button>
+        <button class="btn primary" id="printBtn">Drukuj / Zapisz PDF</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script type="module" src="./app.js"></script>
 </body>
 </html>
