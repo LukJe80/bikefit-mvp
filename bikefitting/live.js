@@ -1,282 +1,274 @@
-:root{
-  --bg:#020617;
-  --panel:#0b1226;
-  --panel2:#0c1633;
-  --line:rgba(255,255,255,.08);
-  --text:#e5e7eb;
-  --muted:rgba(229,231,235,.75);
-  --blue:#2563eb;
-  --blue2:#1d4ed8;
-  --danger:#ef4444;
-  --ok:#22c55e;
-  --cardRadius:18px;
-}
+import { presets, toLabelDiscipline, toLabelGoal } from "./presets.js";
 
-*{ box-sizing:border-box; }
-html,body{ height:100%; }
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
-  background: radial-gradient(1200px 600px at 20% 10%, rgba(37,99,235,.18), transparent 55%),
-              radial-gradient(900px 500px at 80% 0%, rgba(59,130,246,.10), transparent 55%),
-              var(--bg);
-  color:var(--text);
-}
+export function createLiveController(deps){
+  const {
+    videoEl, canvasEl,
+    setStatus, dbg, setHint,
+    setKpi
+  } = deps;
 
-a{ color:inherit; }
+  let camera = null;
+  let pose = null;
+  let stream = null;
 
-.page{
-  width:min(1200px, 96vw);
-  margin: 26px auto 60px;
-}
+  const ctx = canvasEl.getContext("2d");
+  let lastMetrics = { knee:null, elbow:null, torso:null, stab:null };
 
-.top{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:14px;
-  margin-bottom:14px;
-}
-.title{
-  font-weight:800;
-  letter-spacing:.2px;
-  font-size:26px;
-}
-.bar{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
-}
+  // żeby nie spamować instrukcjami w każdej klatce
+  let lastHintKey = "";
+  let lastHintAt = 0;
 
-.card{
-  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
-  border: 1px solid var(--line);
-  border-radius: var(--cardRadius);
-  padding: 14px;
-  box-shadow: 0 10px 40px rgba(0,0,0,.25);
-}
+  function angleABC(a,b,c){
+    const abx=a.x-b.x, aby=a.y-b.y;
+    const cbx=c.x-b.x, cby=c.y-b.y;
+    const dot=abx*cbx+aby*cby;
+    const lab=Math.hypot(abx,aby);
+    const lcb=Math.hypot(cbx,cby);
+    if(lab===0||lcb===0) return null;
+    let cos=dot/(lab*lcb);
+    cos=Math.max(-1,Math.min(1,cos));
+    return Math.acos(cos)*180/Math.PI;
+  }
 
-.h{
-  margin:0 0 10px;
-  font-size:18px;
-  font-weight:750;
-}
+  function fmtDeg(x){ return (x==null||Number.isNaN(x)) ? "—" : (Math.round(x)+"°"); }
 
-.small{ color:var(--muted); font-size:13px; line-height:1.35; }
+  function resizeCanvasToVideo(){
+    const w=videoEl.videoWidth||1280;
+    const h=videoEl.videoHeight||720;
+    canvasEl.width=w; canvasEl.height=h;
+  }
 
-.fieldRow{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:12px;
-  margin-bottom:10px;
-}
-@media (max-width: 820px){
-  .fieldRow{ grid-template-columns: 1fr; }
-}
+  function draw(results){
+    ctx.save();
+    ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
 
-label{ display:block; font-size:13px; color:var(--muted); margin:8px 0 6px; }
-input, select, textarea{
-  width:100%;
-  background: rgba(0,0,0,.25);
-  border:1px solid rgba(255,255,255,.10);
-  color: var(--text);
-  padding:10px 12px;
-  border-radius: 12px;
-  outline:none;
-}
-textarea{ min-height:90px; resize:vertical; }
+    if(results.image){
+      ctx.drawImage(results.image,0,0,canvasEl.width,canvasEl.height);
+    }
+    if(results.poseLandmarks){
+      // rysunki pomocnicze – zostawiamy
+      window.drawConnectors(ctx, results.poseLandmarks, window.POSE_CONNECTIONS,
+        { color: "rgba(255,255,255,0.35)", lineWidth: 3 });
+      window.drawLandmarks(ctx, results.poseLandmarks,
+        { color: "rgba(255,255,255,0.95)", lineWidth: 2, radius: 4 });
+    }
+    ctx.restore();
+  }
 
-input:focus, select:focus, textarea:focus{
-  border-color: rgba(37,99,235,.45);
-  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
-}
+  function throttleHint(key, ms=900){
+    const now = Date.now();
+    if(key !== lastHintKey || (now - lastHintAt) > ms){
+      lastHintKey = key;
+      lastHintAt = now;
+      return true;
+    }
+    return false;
+  }
 
-.btn{
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.04);
-  color: var(--text);
-  padding:10px 14px;
-  border-radius: 12px;
-  cursor:pointer;
-  font-weight:650;
-}
-.btn:hover{ border-color: rgba(255,255,255,.18); }
-.btn.primary{
-  background: linear-gradient(180deg, var(--blue), var(--blue2));
-  border-color: rgba(255,255,255,.08);
-}
-.btn.secondary{
-  background: rgba(37,99,235,.10);
-  border-color: rgba(37,99,235,.25);
-}
-.btn.danger{
-  background: rgba(239,68,68,.12);
-  border-color: rgba(239,68,68,.35);
-}
+  function setHintSafe(key, title, text){
+    if(throttleHint(key)){
+      setHint(title, text);
+    }
+  }
 
-.pill{
-  display:inline-flex;
-  align-items:center;
-  gap:10px;
-  padding:10px 12px;
-  border-radius: 999px;
-  background: rgba(255,255,255,.04);
-  border:1px solid rgba(255,255,255,.10);
-  font-weight:650;
-}
-.dot{
-  width:10px; height:10px; border-radius:50%;
-  background: rgba(255,255,255,.25);
-}
-.dot.on{ background: var(--ok); box-shadow: 0 0 0 4px rgba(34,197,94,.15); }
+  function instructionEngine(session, m){
+    // pobierz progi z presets.js
+    const p = presets(session.bike.discipline, session.bike.goal);
 
-.badge{
-  display:inline-flex;
-  align-items:center;
-  padding:10px 12px;
-  border-radius: 999px;
-  background: rgba(37,99,235,.14);
-  border:1px solid rgba(37,99,235,.30);
-  font-weight:750;
-}
+    // Jakakolwiek widoczność kiepska -> najpierw “technikalia”
+    if(isFinite(m.stab) && m.stab < 55){
+      setHintSafe(
+        "stab_low",
+        "Słaba widoczność punktów",
+        `Stabilność ${m.stab}%. Popraw światło, ustaw kadr (biodro–kolano–kostka w widoku), unikaj luźnych ubrań.`
+      );
+      return;
+    }
 
-.steps{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin: 10px 0 14px;
-}
-.stepTag{
-  padding:10px 12px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.10);
-  background: rgba(255,255,255,.03);
-  cursor:pointer;
-  font-weight:650;
-}
-.stepTag.active{
-  background: rgba(37,99,235,.18);
-  border-color: rgba(37,99,235,.35);
-}
+    // 1) Kolano -> siodło
+    if(m.knee != null){
+      if(m.knee < p.knee[0]){
+        setHintSafe(
+          "knee_low",
+          "Kolano za mocno zgięte",
+          `Kąt kolana ${Math.round(m.knee)}° (poniżej ${p.knee[0]}°). Najczęściej: siodło za nisko. Podnieś 3–5 mm i re-test 10–20 obrotów.`
+        );
+        return;
+      }
+      if(m.knee > p.knee[1]){
+        setHintSafe(
+          "knee_high",
+          "Kolano za proste",
+          `Kąt kolana ${Math.round(m.knee)}° (powyżej ${p.knee[1]}°). Najczęściej: siodło za wysoko. Opuść 3–5 mm i re-test 10–20 obrotów.`
+        );
+        return;
+      }
+    }
 
-.navRow{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  margin-top:14px;
-}
-.rightBtns{ display:flex; gap:10px; flex-wrap:wrap; }
+    // 2) Tułów -> wysokość kokpitu (drop)
+    if(m.torso != null){
+      if(m.torso < p.torso[0]){
+        setHintSafe(
+          "torso_low",
+          "Tułów zbyt niski / agresywny",
+          `Kąt tułowia ${Math.round(m.torso)}° (poniżej ${p.torso[0]}°). Dla celu ${toLabelGoal(session.bike.goal)} rozważ: podnieść kokpit +5–10 mm lub krótszy mostek.`
+        );
+        return;
+      }
+      if(m.torso > p.torso[1]){
+        setHintSafe(
+          "torso_high",
+          "Tułów zbyt wysoki / zbyt pionowo",
+          `Kąt tułowia ${Math.round(m.torso)}° (powyżej ${p.torso[1]}°). Jeśli chcesz bardziej sportowo: obniż kokpit 5–10 mm i sprawdź komfort.`
+        );
+        return;
+      }
+    }
 
-.divider{
-  height:1px;
-  background: rgba(255,255,255,.10);
-  margin: 12px 0;
-}
+    // 3) Łokieć -> reach / mostek
+    if(m.elbow != null){
+      if(m.elbow > p.elbow[1]){
+        setHintSafe(
+          "elbow_high",
+          "Ręce za proste / reach za duży",
+          `Kąt łokcia ${Math.round(m.elbow)}° (powyżej ${p.elbow[1]}°). Test: krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm). Jedna zmiana naraz.`
+        );
+        return;
+      }
+      if(m.elbow < p.elbow[0]){
+        setHintSafe(
+          "elbow_low",
+          "Ręce mocno ugięte / pozycja zebrana",
+          `Kąt łokcia ${Math.round(m.elbow)}° (poniżej ${p.elbow[0]}°). Jeśli to nie cel aero: test dłuższy mostek (+10 mm) albo delikatnie niżej kokpit.`
+        );
+        return;
+      }
+    }
 
-.grid{
-  display:grid;
-  grid-template-columns: 1.2fr .8fr;
-  gap:12px;
-}
-@media (max-width: 980px){
-  .grid{ grid-template-columns: 1fr; }
-}
+    // Jeśli wszystko w normie:
+    const label = `${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
+    setHintSafe(
+      "ok_all",
+      "Wygląda dobrze ✅",
+      `Jesteś w zakresach dla: ${label}. Zapisz „PRZED”, zrób jedną zmianę i zapisz „PO”.`
+    );
+  }
 
-.videoWrap{
-  position:relative;
-  width:100%;
-  aspect-ratio: 16 / 9;
-  background: #000;
-  border-radius: 16px;
-  overflow:hidden;
-  border:1px solid rgba(255,255,255,.08);
-}
-video, canvas{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit: cover;
-}
+  function computeMetrics(results, session){
+    const lm=results.poseLandmarks;
+    if(!lm) return;
 
-.instr{
-  border:1px dashed rgba(255,255,255,.14);
-  border-radius: 16px;
-  padding: 12px;
-  margin-bottom: 12px;
-  background: rgba(0,0,0,.16);
-}
-.instr h3{
-  margin:0 0 6px;
-  font-size:13px;
-  color: var(--muted);
-  font-weight:750;
-  letter-spacing:.2px;
-}
-.big{ font-size:22px; font-weight:850; margin:0 0 4px; }
+    // (prawa strona ciała domyślnie)
+    const hip=lm[24], knee=lm[26], ankle=lm[28];
+    const shoulder=lm[12], elbow=lm[14], wrist=lm[16];
 
-.kpis{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-}
-@media (max-width: 520px){
-  .kpis{ grid-template-columns:1fr; }
-}
-.kpi{ padding:12px; }
-.kpi .label{ color:var(--muted); font-size:12px; font-weight:700; }
-.kpi .val{ font-size:22px; font-weight:900; margin:6px 0; }
-.kpi .desc{ color:var(--muted); font-size:12px; }
+    const kneeAng=angleABC(hip,knee,ankle);
+    const elbowAng=angleABC(shoulder,elbow,wrist);
 
-.debug{
-  padding:10px 12px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size:12px;
-  color: rgba(229,231,235,.85);
-  background: rgba(0,0,0,.25);
-  border-radius: 12px;
-}
+    let torsoAng=null;
+    if(hip && shoulder){
+      const a={x:hip.x, y:hip.y-1};
+      torsoAng=angleABC(a, hip, shoulder);
+    }
 
-.liveTop{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.liveBtns{ display:flex; gap:10px; flex-wrap:wrap; }
+    const vis=[hip,knee,ankle,shoulder,elbow,wrist].map(p=>p?.visibility??0);
+    const avg=vis.reduce((s,v)=>s+v,0)/vis.length;
+    const stab=Math.round(avg*100);
 
-.reportBox .small{ margin:4px 0; }
+    setKpi("knee", fmtDeg(kneeAng));
+    setKpi("elbow", fmtDeg(elbowAng));
+    setKpi("torso", fmtDeg(torsoAng));
+    setKpi("stab", (isFinite(stab)?(stab+"%"):"—"));
 
-.shots{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:10px;
-  margin-top:12px;
-}
-@media (max-width: 980px){
-  .shots{ grid-template-columns: 1fr; }
-}
+    lastMetrics = { knee:kneeAng, elbow:elbowAng, torso:torsoAng, stab:stab };
 
-.shotImg{
-  width:100%;
-  border-radius: 14px;
-  margin-top:10px;
-  border:1px solid rgba(255,255,255,.10);
-}
+    // Instruktor krok-po-kroku:
+    instructionEngine(session, lastMetrics);
 
-.modal{
-  position:fixed;
-  inset:0;
-  background: rgba(0,0,0,.55);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:16px;
-  z-index: 50;
-}
-.modalInner{
-  width:min(700px, 96vw);
+    // Debug
+    dbg(`preset: ${session.bike.discipline}/${session.bike.goal} | knee=${fmtDeg(kneeAng)} elbow=${fmtDeg(elbowAng)} torso=${fmtDeg(torsoAng)} stab=${stab}%`);
+  }
+
+  async function initPose(){
+    pose = new window.Pose({
+      locateFile: (file) => "https://cdn.jsdelivr.net/npm/@mediapipe/pose/" + file
+    });
+
+    pose.setOptions({
+      modelComplexity: 1,
+      smoothLandmarks: true,
+      enableSegmentation: false,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    pose.onResults((results) => {
+      if(videoEl.videoWidth && canvasEl.width === 0) resizeCanvasToVideo();
+      draw(results);
+    });
+  }
+
+  async function start(session){
+    try{
+      setStatus("START...", false);
+      setHint("Łączę kamerę", "Przeglądarka może zapytać o zgodę.");
+      dbg("start...");
+
+      if(!pose) await initPose();
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode:"user", width:{ideal:1280}, height:{ideal:720} },
+        audio:false
+      });
+
+      videoEl.srcObject=stream;
+      await videoEl.play();
+      resizeCanvasToVideo();
+
+      // podmieniamy onResults, żeby mieć aktualny session
+      pose.onResults((results) => {
+        if(videoEl.videoWidth && canvasEl.width === 0) resizeCanvasToVideo();
+        draw(results);
+        computeMetrics(results, session);
+      });
+
+      camera = new window.Camera(videoEl, {
+        onFrame: async () => { await pose.send({ image: videoEl }); }
+      });
+      camera.start();
+
+      setStatus("ON", true);
+      setHint("Analizuję", "Punkty powinny pojawić się po 1–2 sekundach.");
+      dbg("kamera OK");
+    }catch(e){
+      console.error(e);
+      dbg((e && e.message) ? e.message : String(e));
+      setStatus("OFF", false);
+      setHint("Błąd kamery", "Sprawdź kłódkę (kamera: zezwalaj), zamknij Teams/Zoom/OBS i odśwież.");
+    }
+  }
+
+  function stop(){
+    try{ if(camera) camera.stop(); }catch(_){}
+    camera=null;
+
+    if(stream) stream.getTracks().forEach(t=>t.stop());
+    stream=null;
+
+    ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
+    setStatus("OFF", false);
+    setHint("Zatrzymano", "Kliknij „Start kamery”, aby uruchomić ponownie.");
+    dbg("stop");
+  }
+
+  function snapshot(){
+    try{ return canvasEl.toDataURL("image/jpeg", 0.85); }
+    catch(e){ return null; }
+  }
+
+  function getLastMetrics(){
+    return lastMetrics;
+  }
+
+  return { start, stop, snapshot, getLastMetrics };
 }
