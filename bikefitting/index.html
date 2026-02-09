@@ -17,20 +17,18 @@
 <body>
 <script>
   // Gate: jeśli brak sesji -> wróć do logowania
-  (function(){
-    const AUTH_KEY = "bikefit_auth";
-    function isAuthed(){
-      try{
-        const raw = localStorage.getItem(AUTH_KEY);
-        if(!raw) return false;
-        const obj = JSON.parse(raw);
-        return obj && obj.exp && obj.exp > Date.now();
-      }catch(e){ return false; }
-    }
-    if(!isAuthed()){
-      location.replace("/");
-    }
-  })();
+  const AUTH_KEY = "bikefit_auth";
+  function isAuthed(){
+    try{
+      const raw = localStorage.getItem(AUTH_KEY);
+      if(!raw) return false;
+      const obj = JSON.parse(raw);
+      return obj && obj.exp && obj.exp > Date.now();
+    }catch(e){ return false; }
+  }
+  if(!isAuthed()){
+    location.replace("/");
+  }
 </script>
 
 <div class="page">
@@ -90,7 +88,7 @@
         <input id="footCm" type="number" min="15" max="35" placeholder="np. 27.5" />
       </div>
       <div>
-        <label>Długość ramion (cm) (opcjonalnie)</label>
+        <label>Długość ramion (cm) (opcjonalnie, później)</label>
         <input id="armsCm" type="number" min="40" max="120" placeholder="np. 62" />
       </div>
     </div>
@@ -124,69 +122,34 @@
       </div>
     </div>
 
-    <div class="divider" style="margin:14px 0;"></div>
-    <div class="h">Rower klienta (stan wyjściowy) – info do raportu</div>
-    <div class="small" style="margin-bottom:10px;">
-      Te pola <b>nie zmieniają obliczeń</b> — służą tylko do raportu i dla klienta.
+    <!-- PRESETY progów -->
+    <div class="card" style="margin-top:12px;">
+      <div class="h">Presety progów (auto)</div>
+      <div class="small" style="margin-top:6px;">
+        Na podstawie Dyscypliny i Celu ustawiamy zakresy (kolano/łokieć/tułów). Później dodamy tryb PRO z edycją.
+      </div>
+
+      <div class="fieldRow" style="margin-top:10px;">
+        <div class="card" style="padding:10px;">
+          <div class="small"><b>Kolano (DMP / dół)</b></div>
+          <div id="rangeKnee" style="font-size:18px;font-weight:800;">—</div>
+        </div>
+        <div class="card" style="padding:10px;">
+          <div class="small"><b>Łokieć</b></div>
+          <div id="rangeElbow" style="font-size:18px;font-weight:800;">—</div>
+        </div>
+        <div class="card" style="padding:10px;">
+          <div class="small"><b>Tułów</b></div>
+          <div id="rangeTorso" style="font-size:18px;font-weight:800;">—</div>
+        </div>
+      </div>
+
+      <div class="small" id="presetHint" style="margin-top:8px;opacity:.85;">Wybierz Dyscyplinę i Cel.</div>
     </div>
 
-    <div class="fieldRow">
-      <div>
-        <label>Model / typ roweru (opcjonalnie)</label>
-        <input id="bikeModel" placeholder="np. Giant TCR / Trek Fuel EX" />
-      </div>
-      <div>
-        <label>Rozmiar ramy (opcjonalnie)</label>
-        <input id="frameSize" placeholder="np. 54 / M / 19&quot;" />
-      </div>
+    <div class="small" style="margin-top:10px;">
+      W LIVE nie ma już wyborów — tylko znacznik typu <b>MTB • Neutral</b>. Zmiany robisz tutaj i przechodzisz dalej.
     </div>
-
-    <div class="fieldRow">
-      <div>
-        <label>Długość mostka (mm)</label>
-        <input id="stemLen" type="number" min="40" max="160" placeholder="np. 100" />
-      </div>
-      <div>
-        <label>Kąt mostka (°) (np. -6 / +6)</label>
-        <input id="stemAng" type="number" min="-30" max="30" placeholder="np. -6" />
-      </div>
-    </div>
-
-    <div class="fieldRow">
-      <div>
-        <label>Szerokość kierownicy (mm)</label>
-        <input id="barWidth" type="number" min="360" max="820" placeholder="np. 420" />
-      </div>
-      <div>
-        <label>Wysokość kierownicy (mm) (opcjonalnie)</label>
-        <input id="barHeight" type="number" min="0" max="500" placeholder="np. 110" />
-      </div>
-    </div>
-
-    <div class="fieldRow">
-      <div>
-        <label>Wysokość siodła (mm od suportu)</label>
-        <input id="saddleHeight" type="number" min="500" max="950" placeholder="np. 735" />
-      </div>
-      <div>
-        <label>Setback siodła (mm) (opcjonalnie)</label>
-        <input id="saddleSetback" type="number" min="-50" max="150" placeholder="np. 45" />
-      </div>
-    </div>
-
-    <div class="fieldRow">
-      <div>
-        <label>Kąt siodła (°) (np. +2 / -2)</label>
-        <input id="saddleTilt" type="number" min="-10" max="10" placeholder="np. 0" />
-      </div>
-      <div>
-        <label>Długość korby (mm)</label>
-        <input id="crankLen" type="number" min="150" max="200" placeholder="np. 172.5" />
-      </div>
-    </div>
-
-    <label>Uwagi: bloki / ustawienia / co ważne</label>
-    <textarea id="setupNotes" placeholder="np. bloki: 2mm w tył, 1mm do środka; siodło: +2°; itp."></textarea>
 
     <div class="navRow">
       <button class="btn" id="backAnthro">← Wróć</button>
@@ -206,7 +169,6 @@
         <button id="editBike" class="btn secondary">Zmień ustawienia</button>
         <button id="startBtn" class="btn primary">Start kamery</button>
         <button id="stopBtn" class="btn">Stop</button>
-        <button id="addChangeBtn" class="btn">Dodaj zmianę</button>
         <button id="saveShot" class="btn">Zapisz pomiar</button>
         <button id="toReport" class="btn primary">Raport →</button>
       </div>
@@ -263,19 +225,6 @@
         <div id="debug" class="card debug">DBG: gotowe.</div>
       </div>
     </div>
-
-    <!-- modal: dodaj zmianę -->
-    <div id="changeModal" class="modal" style="display:none;">
-      <div class="modalInner card">
-        <div class="h">Dodaj zmianę (do raportu)</div>
-        <div class="small">Np. „Mostek +10mm”, „Siodło -2mm”, „Bloki 2mm w tył”.</div>
-        <textarea id="changeText" placeholder="Wpisz zmianę..." style="margin-top:10px;"></textarea>
-        <div class="navRow" style="margin-top:10px;">
-          <button class="btn" id="cancelChange">Anuluj</button>
-          <button class="btn primary" id="saveChange">Zapisz</button>
-        </div>
-      </div>
-    </div>
   </section>
 
   <!-- KROK 5 -->
@@ -288,16 +237,6 @@
       <div class="small"><b>Dyscyplina / cel:</b> <span id="rBike">—</span></div>
       <div class="divider"></div>
       <div class="small"><b>Notatki:</b> <span id="rNotes">—</span></div>
-    </div>
-
-    <div style="margin-top:12px;" class="card">
-      <div class="h">Rower klienta (stan wyjściowy)</div>
-      <div id="rSetup" class="small">—</div>
-    </div>
-
-    <div style="margin-top:12px;" class="card">
-      <div class="h">Zmiany w trakcie sesji</div>
-      <div id="rChanges" class="small">—</div>
     </div>
 
     <div style="margin-top:12px;" class="card">
