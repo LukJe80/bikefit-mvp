@@ -3,104 +3,59 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Bikefit LIVE — logowanie</title>
+  <title>Bikefit – Logowanie</title>
 
-  <meta name="theme-color" content="#020617" />
-  <link rel="manifest" href="/manifest.webmanifest" />
+  <!-- używamy stylu aplikacji, żeby było spójnie -->
+  <link rel="stylesheet" href="./bikefitting/app.css" />
+  <meta name="theme-color" content="#020617">
+  <link rel="manifest" href="./manifest.webmanifest">
 
   <style>
-    :root{
-      --bg:#020617;
-      --panel:rgba(255,255,255,.06);
-      --panel2:rgba(255,255,255,.08);
-      --text:#e5e7eb;
-      --muted:#94a3b8;
-      --blue:#3b82f6;
-      --blue2:#1d4ed8;
-      --red:#ef4444;
-      --ring:rgba(59,130,246,.35);
-      --radius:18px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0; min-height:100vh;
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(1200px 700px at 15% 0%, rgba(59,130,246,.18), transparent 55%),
-        radial-gradient(900px 600px at 85% 10%, rgba(14,165,233,.12), transparent 55%),
-        radial-gradient(900px 600px at 40% 100%, rgba(99,102,241,.10), transparent 55%),
-        var(--bg);
-      display:flex; align-items:center; justify-content:center;
-      padding:24px;
-    }
-    .wrap{ width:min(880px, 100%); display:grid; grid-template-columns: 1.1fr .9fr; gap:18px; }
-    @media (max-width:900px){ .wrap{grid-template-columns:1fr} }
-    .card{
-      background:linear-gradient(180deg, var(--panel), rgba(255,255,255,.03));
-      border:1px solid rgba(255,255,255,.10);
-      border-radius:var(--radius);
-      box-shadow:0 12px 40px rgba(0,0,0,.45);
-      padding:22px;
-    }
-    h1{margin:0 0 6px; font-size:28px; letter-spacing:.2px}
-    .sub{color:var(--muted); margin:0 0 18px; line-height:1.35}
-    label{display:block; font-size:12px; color:var(--muted); margin:12px 0 6px}
-    input{
-      width:100%;
-      padding:12px 12px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(0,0,0,.25);
-      color:var(--text);
-      outline:none;
-    }
-    input:focus{ border-color:rgba(59,130,246,.55); box-shadow:0 0 0 4px var(--ring) }
-    .btn{
-      display:inline-flex; align-items:center; justify-content:center;
-      gap:10px;
-      padding:12px 14px;
-      border-radius:14px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.08);
-      color:var(--text);
-      cursor:pointer;
-      user-select:none;
-      font-weight:600;
-    }
-    .btn.primary{
-      background:linear-gradient(180deg, rgba(59,130,246,.55), rgba(29,78,216,.55));
-      border-color:rgba(59,130,246,.35);
-      box-shadow:0 10px 30px rgba(59,130,246,.20);
-    }
-    .btn.primary:hover{ filter:brightness(1.05) }
-    .row{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap}
-    .hint{margin-top:12px; color:var(--muted); font-size:12px; line-height:1.35}
-    .ok{color:#a7f3d0}
-    .bad{color:#fecaca}
-    .mini{
-      display:flex; gap:10px; align-items:center; color:var(--muted);
-      margin-top:10px; font-size:12px;
-    }
-    .tag{
-      display:inline-flex; align-items:center;
-      padding:6px 10px;
-      border-radius:999px;
-      border:1px solid rgba(255,255,255,.10);
-      background:rgba(255,255,255,.06);
-      color:var(--muted);
-      font-size:12px;
-    }
-    .right h2{margin:0 0 8px; font-size:16px}
-    ul{margin:10px 0 0 18px; color:var(--muted); line-height:1.45}
-    code{color:#c7d2fe}
+    /* małe dopasowanie do ekranu logowania */
+    body { min-height: 100vh; display:flex; align-items:center; justify-content:center; }
+    .loginCard { width:min(620px, 92vw); }
+    .loginRow { display:flex; gap:12px; align-items:center; }
+    .loginRow input { flex:1; }
+    .tip { margin-top:10px; opacity:.85; }
   </style>
 </head>
 
 <body>
+  <div class="card loginCard">
+    <div class="h" style="font-size:22px; margin-bottom:6px;">Bikefit LIVE</div>
+    <div class="small" style="margin-bottom:14px;">
+      Logowanie (PIN). Po zalogowaniu wejdziesz do aplikacji LIVE.
+    </div>
+
+    <label>PIN</label>
+    <div class="loginRow">
+      <input id="pin" type="password" inputmode="numeric" placeholder="Wpisz PIN..." />
+      <button class="btn primary" id="loginBtn">Zaloguj</button>
+      <button class="btn" id="clearBtn" title="Czyści dane sesji i logowanie">Wyczyść</button>
+    </div>
+
+    <div class="tip small">
+      Tip: to prosta bramka (localStorage). Później można podpiąć Supabase/login.
+    </div>
+
+    <div id="msg" class="small" style="margin-top:10px;"></div>
+  </div>
+
 <script>
+/* ========= ROOT LOGIN (bez dubli!) ========= */
+(function(){
   const AUTH_KEY = "bikefit_auth";
-  function isAuthed(){
+  const SESSION_KEY = "bikefit_session_mod_v1";
+
+  // ZMIEŃ PIN TUTAJ:
+  const PIN_CODE = "1234";
+
+  function setMsg(t){
+    const el = document.getElementById("msg");
+    el.textContent = t || "";
+  }
+
+  function authed(){
     try{
       const raw = localStorage.getItem(AUTH_KEY);
       if(!raw) return false;
@@ -108,82 +63,41 @@
       return obj && obj.exp && obj.exp > Date.now();
     }catch(e){ return false; }
   }
-  if(isAuthed()){
-    location.replace("/bikefitting/");
+
+  // jeśli już zalogowany -> od razu do app
+  if(authed()){
+    location.replace("./bikefitting/");
+    return;
   }
-</script>
 
-<div class="wrap">
-  <div class="card">
-    <h1>Bikefit LIVE</h1>
-    <p class="sub">Logowanie do narzędzia. Po zalogowaniu przejdziesz do <span class="tag">/bikefitting/</span></p>
-
-    <label>Kod dostępu</label>
-    <input id="code" placeholder="wpisz kod" autocomplete="off" />
-
-    <div class="row">
-      <button class="btn primary" id="loginBtn">Zaloguj</button>
-      <button class="btn" id="resetBtn" title="Czyści tylko zapisany token logowania">Wyczyść logowanie</button>
-      <span class="tag" id="statusTag">Status: <span id="sTxt">OFF</span></span>
-    </div>
-
-    <div class="hint" id="hint">
-      Wskazówka: jeśli kamera ma działać na telefonie, używaj <b>HTTPS</b> lub lokalnie <code>http://localhost</code>.
-    </div>
-
-    <div class="mini">
-      <span class="tag">PWA</span>
-      <span class="tag">1 kamera (na teraz)</span>
-      <span class="tag">Raport / PDF</span>
-    </div>
-  </div>
-
-  <div class="card right">
-    <h2>Co jest w środku</h2>
-    <ul>
-      <li>Kroki: Klient → Antropometria → Bike/Dyscyplina → LIVE → Raport</li>
-      <li>Pomiary PRZED/PO + rekomendacje</li>
-      <li>„Wyczyść sesję” czyści dane klienta + pomiary</li>
-    </ul>
-  </div>
-</div>
-
-<script>
-  const AUTH_KEY = "bikefit_auth";
-  const TTL_HOURS = 12; // ważność logowania
-  const DEMO_CODE = "1234"; // zmień sobie na własny
-
-  const $ = (id)=>document.getElementById(id);
-  function setStatus(on){
-    $("sTxt").textContent = on ? "ON" : "OFF";
-    $("statusTag").style.borderColor = on ? "rgba(34,197,94,.35)" : "rgba(255,255,255,.10)";
-    $("statusTag").style.color = on ? "#a7f3d0" : "#94a3b8";
-  }
-  setStatus(false);
-
-  $("loginBtn").onclick = () => {
-    const v = $("code").value.trim();
-    if(!v){
-      $("hint").innerHTML = "<span class='bad'>Podaj kod dostępu.</span>";
+  function doLogin(){
+    const pin = (document.getElementById("pin").value || "").trim();
+    if(pin !== PIN_CODE){
+      setMsg("Błędny PIN.");
       return;
     }
-    if(v !== DEMO_CODE){
-      $("hint").innerHTML = "<span class='bad'>Zły kod.</span> (Na teraz to proste logowanie — później można podmienić na Supabase).";
-      return;
-    }
-
-    const exp = Date.now() + TTL_HOURS*60*60*1000;
+    // 7 dni ważności
+    const exp = Date.now() + 7*24*60*60*1000;
     localStorage.setItem(AUTH_KEY, JSON.stringify({ exp }));
-    $("hint").innerHTML = "<span class='ok'>OK. Zalogowano.</span> Przekierowuję…";
-    setStatus(true);
-    setTimeout(()=>location.replace("/bikefitting/"), 250);
-  };
+    location.replace("./bikefitting/");
+  }
 
-  $("resetBtn").onclick = () => {
+  function doClear(){
+    if(!confirm("Wyczyścić logowanie + całą sesję (klient/pomiary/zmiany)?")) return;
     localStorage.removeItem(AUTH_KEY);
-    $("hint").textContent = "Wyczyszczono token logowania.";
-    setStatus(false);
-  };
+    localStorage.removeItem(SESSION_KEY);
+    setMsg("Wyczyszczono.");
+    document.getElementById("pin").value = "";
+  }
+
+  document.getElementById("loginBtn").addEventListener("click", doLogin);
+  document.getElementById("clearBtn").addEventListener("click", doClear);
+  document.getElementById("pin").addEventListener("keydown", (e) => {
+    if(e.key === "Enter") doLogin();
+  });
+
+  setMsg("");
+})();
 </script>
 </body>
 </html>
