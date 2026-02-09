@@ -2,83 +2,101 @@
 <html lang="pl">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bikefit – logowanie</title>
-  <link rel="manifest" href="/manifest.webmanifest">
-  <meta name="theme-color" content="#0b1220">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bikefit LIVE — logowanie</title>
+
+  <meta name="theme-color" content="#020617" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+
   <style>
-:root{
-  --accent:#2563eb;
-  --accentHover:#1d4ed8;
-  --bg:#020617;
-  --text:#e5e7eb;
-  --panel: rgba(255,255,255,0.05);
-  --panelBorder: rgba(255,255,255,0.10);
-  --muted: rgba(229,231,235,0.7);
-}
-html, body {
-  height: 100%;
-  margin: 0;
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-}
-a { color: var(--accent); }
-.wrap{
-  min-height:100%;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  padding:24px;
-}
-.card{
-  width:min(520px, 100%);
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 18px;
-  padding: 22px;
-  backdrop-filter: blur(10px);
-}
-h1{ margin:0 0 8px 0; font-size:22px; }
-p{ margin:0 0 18px 0; opacity:.85; }
-label{ display:block; font-size:13px; opacity:.85; margin:10px 0 6px; }
-input{
-  width:100%;
-  padding:12px 12px;
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.25);
-  color: var(--text);
-  outline:none;
-}
-.row{ display:flex; gap:10px; align-items:center; margin-top:14px; }
-.btn{
-  appearance:none;
-  border:1px solid rgba(255,255,255,0.14);
-  background: rgba(255,255,255,0.06);
-  color: var(--text);
-  padding:12px 14px;
-  border-radius: 12px;
-  cursor:pointer;
-  font-weight:700;
-}
-.btn.primary{
-  background: var(--accent);
-  border-color: rgba(0,0,0,0.0);
-}
-.btn.primary:hover{ background: var(--accentHover); }
-.small{ font-size:12px; opacity:.75; margin-top:10px; }
-.err{
-  display:none;
-  margin-top:10px;
-  padding:10px 12px;
-  border-radius: 12px;
-  border:1px solid rgba(248,113,113,0.35);
-  background: rgba(248,113,113,0.10);
-  color:#fecaca;
-}
+    :root{
+      --bg:#020617;
+      --panel:rgba(255,255,255,.06);
+      --panel2:rgba(255,255,255,.08);
+      --text:#e5e7eb;
+      --muted:#94a3b8;
+      --blue:#3b82f6;
+      --blue2:#1d4ed8;
+      --red:#ef4444;
+      --ring:rgba(59,130,246,.35);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh;
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 15% 0%, rgba(59,130,246,.18), transparent 55%),
+        radial-gradient(900px 600px at 85% 10%, rgba(14,165,233,.12), transparent 55%),
+        radial-gradient(900px 600px at 40% 100%, rgba(99,102,241,.10), transparent 55%),
+        var(--bg);
+      display:flex; align-items:center; justify-content:center;
+      padding:24px;
+    }
+    .wrap{ width:min(880px, 100%); display:grid; grid-template-columns: 1.1fr .9fr; gap:18px; }
+    @media (max-width:900px){ .wrap{grid-template-columns:1fr} }
+    .card{
+      background:linear-gradient(180deg, var(--panel), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.10);
+      border-radius:var(--radius);
+      box-shadow:0 12px 40px rgba(0,0,0,.45);
+      padding:22px;
+    }
+    h1{margin:0 0 6px; font-size:28px; letter-spacing:.2px}
+    .sub{color:var(--muted); margin:0 0 18px; line-height:1.35}
+    label{display:block; font-size:12px; color:var(--muted); margin:12px 0 6px}
+    input{
+      width:100%;
+      padding:12px 12px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(0,0,0,.25);
+      color:var(--text);
+      outline:none;
+    }
+    input:focus{ border-color:rgba(59,130,246,.55); box-shadow:0 0 0 4px var(--ring) }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:10px;
+      padding:12px 14px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.08);
+      color:var(--text);
+      cursor:pointer;
+      user-select:none;
+      font-weight:600;
+    }
+    .btn.primary{
+      background:linear-gradient(180deg, rgba(59,130,246,.55), rgba(29,78,216,.55));
+      border-color:rgba(59,130,246,.35);
+      box-shadow:0 10px 30px rgba(59,130,246,.20);
+    }
+    .btn.primary:hover{ filter:brightness(1.05) }
+    .row{display:flex; gap:10px; margin-top:14px; flex-wrap:wrap}
+    .hint{margin-top:12px; color:var(--muted); font-size:12px; line-height:1.35}
+    .ok{color:#a7f3d0}
+    .bad{color:#fecaca}
+    .mini{
+      display:flex; gap:10px; align-items:center; color:var(--muted);
+      margin-top:10px; font-size:12px;
+    }
+    .tag{
+      display:inline-flex; align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.06);
+      color:var(--muted);
+      font-size:12px;
+    }
+    .right h2{margin:0 0 8px; font-size:16px}
+    ul{margin:10px 0 0 18px; color:var(--muted); line-height:1.45}
+    code{color:#c7d2fe}
   </style>
 </head>
+
 <body>
 <script>
   const AUTH_KEY = "bikefit_auth";
@@ -98,54 +116,74 @@ input{
 <div class="wrap">
   <div class="card">
     <h1>Bikefit LIVE</h1>
-    <p>Logowanie (lokalnie). Po zalogowaniu wejdziesz do aplikacji LIVE.</p>
+    <p class="sub">Logowanie do narzędzia. Po zalogowaniu przejdziesz do <span class="tag">/bikefitting/</span></p>
 
-    <label>PIN</label>
-    <input id="pin" inputmode="numeric" placeholder="Wpisz PIN..." autocomplete="off" />
+    <label>Kod dostępu</label>
+    <input id="code" placeholder="wpisz kod" autocomplete="off" />
 
     <div class="row">
-      <button class="btn primary" id="login">Zaloguj</button>
-      <button class="btn" id="clear">Wyczyść</button>
+      <button class="btn primary" id="loginBtn">Zaloguj</button>
+      <button class="btn" id="resetBtn" title="Czyści tylko zapisany token logowania">Wyczyść logowanie</button>
+      <span class="tag" id="statusTag">Status: <span id="sTxt">OFF</span></span>
     </div>
 
-    <div id="err" class="err">Błędny PIN.</div>
-    <div class="small">
-      Tip: PIN jest prostą bramką (localStorage). Później możemy podpiąć Supabase/login.
+    <div class="hint" id="hint">
+      Wskazówka: jeśli kamera ma działać na telefonie, używaj <b>HTTPS</b> lub lokalnie <code>http://localhost</code>.
     </div>
+
+    <div class="mini">
+      <span class="tag">PWA</span>
+      <span class="tag">1 kamera (na teraz)</span>
+      <span class="tag">Raport / PDF</span>
+    </div>
+  </div>
+
+  <div class="card right">
+    <h2>Co jest w środku</h2>
+    <ul>
+      <li>Kroki: Klient → Antropometria → Bike/Dyscyplina → LIVE → Raport</li>
+      <li>Pomiary PRZED/PO + rekomendacje</li>
+      <li>„Wyczyść sesję” czyści dane klienta + pomiary</li>
+    </ul>
   </div>
 </div>
 
 <script>
   const AUTH_KEY = "bikefit_auth";
-  const PIN = "1234"; // <- zmień jeśli chcesz
+  const TTL_HOURS = 12; // ważność logowania
+  const DEMO_CODE = "1234"; // zmień sobie na własny
 
   const $ = (id)=>document.getElementById(id);
-  const err = $("err");
-
-  function setErr(on){
-    err.style.display = on ? "block" : "none";
+  function setStatus(on){
+    $("sTxt").textContent = on ? "ON" : "OFF";
+    $("statusTag").style.borderColor = on ? "rgba(34,197,94,.35)" : "rgba(255,255,255,.10)";
+    $("statusTag").style.color = on ? "#a7f3d0" : "#94a3b8";
   }
+  setStatus(false);
 
-  $("clear").onclick = () => {
-    $("pin").value = "";
-    setErr(false);
-  };
-
-  function doLogin(){
-    const v = ($("pin").value || "").trim();
-    if(v !== PIN){
-      setErr(true);
+  $("loginBtn").onclick = () => {
+    const v = $("code").value.trim();
+    if(!v){
+      $("hint").innerHTML = "<span class='bad'>Podaj kod dostępu.</span>";
       return;
     }
-    setErr(false);
-    // 12h sesji
-    const exp = Date.now() + 12*60*60*1000;
-    localStorage.setItem(AUTH_KEY, JSON.stringify({ exp }));
-    location.href = "/bikefitting/";
-  }
+    if(v !== DEMO_CODE){
+      $("hint").innerHTML = "<span class='bad'>Zły kod.</span> (Na teraz to proste logowanie — później można podmienić na Supabase).";
+      return;
+    }
 
-  $("login").onclick = doLogin;
-  $("pin").addEventListener("keydown", (e)=>{ if(e.key==="Enter") doLogin(); });
+    const exp = Date.now() + TTL_HOURS*60*60*1000;
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ exp }));
+    $("hint").innerHTML = "<span class='ok'>OK. Zalogowano.</span> Przekierowuję…";
+    setStatus(true);
+    setTimeout(()=>location.replace("/bikefitting/"), 250);
+  };
+
+  $("resetBtn").onclick = () => {
+    localStorage.removeItem(AUTH_KEY);
+    $("hint").textContent = "Wyczyszczono token logowania.";
+    setStatus(false);
+  };
 </script>
 </body>
 </html>
