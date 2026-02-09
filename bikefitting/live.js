@@ -1,189 +1,282 @@
-export function createLiveController({ videoEl, canvasEl, setStatus, dbg, setHint, setKpi }){
-  let stream = null;
-  let pose = null;
-  let running = false;
+:root{
+  --bg:#020617;
+  --panel:#0b1226;
+  --panel2:#0c1633;
+  --line:rgba(255,255,255,.08);
+  --text:#e5e7eb;
+  --muted:rgba(229,231,235,.75);
+  --blue:#2563eb;
+  --blue2:#1d4ed8;
+  --danger:#ef4444;
+  --ok:#22c55e;
+  --cardRadius:18px;
+}
 
-  let lastMetrics = { knee:null, elbow:null, torso:null, stab:null };
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+body{
+  margin:0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+  background: radial-gradient(1200px 600px at 20% 10%, rgba(37,99,235,.18), transparent 55%),
+              radial-gradient(900px 500px at 80% 0%, rgba(59,130,246,.10), transparent 55%),
+              var(--bg);
+  color:var(--text);
+}
 
-  const ctx = canvasEl.getContext("2d", { alpha:true });
+a{ color:inherit; }
 
-  function resizeCanvas(){
-    const w = videoEl.videoWidth || 1280;
-    const h = videoEl.videoHeight || 720;
-    canvasEl.width = w;
-    canvasEl.height = h;
-    canvasEl.style.width = "100%";
-    canvasEl.style.height = "100%";
-  }
+.page{
+  width:min(1200px, 96vw);
+  margin: 26px auto 60px;
+}
 
-  function angle(a,b,c){
-    // kąt ABC (b jako wierzchołek)
-    const ab = { x: a.x - b.x, y: a.y - b.y };
-    const cb = { x: c.x - b.x, y: c.y - b.y };
-    const dot = ab.x*cb.x + ab.y*cb.y;
-    const lab = Math.hypot(ab.x,ab.y);
-    const lcb = Math.hypot(cb.x,cb.y);
-    if(!lab || !lcb) return null;
-    let v = dot / (lab*lcb);
-    v = Math.max(-1, Math.min(1, v));
-    return Math.acos(v) * (180/Math.PI);
-  }
+.top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-bottom:14px;
+}
+.title{
+  font-weight:800;
+  letter-spacing:.2px;
+  font-size:26px;
+}
+.bar{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
 
-  function pick(landmarks, idx){
-    const p = landmarks[idx];
-    return p ? { x:p.x, y:p.y, v: p.visibility ?? 0 } : null;
-  }
+.card{
+  background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+  border: 1px solid var(--line);
+  border-radius: var(--cardRadius);
+  padding: 14px;
+  box-shadow: 0 10px 40px rgba(0,0,0,.25);
+}
 
-  function compute(landmarks){
-    // MediaPipe Pose indexes:
-    // 11 l_shoulder, 12 r_shoulder
-    // 13 l_elbow, 14 r_elbow
-    // 15 l_wrist, 16 r_wrist
-    // 23 l_hip, 24 r_hip
-    // 25 l_knee, 26 r_knee
-    // 27 l_ankle,28 r_ankle
+.h{
+  margin:0 0 10px;
+  font-size:18px;
+  font-weight:750;
+}
 
-    // bok: bierzemy stronę bardziej widoczną (większa suma visibility)
-    const left = {
-      sh: pick(landmarks,11), el: pick(landmarks,13), wr: pick(landmarks,15),
-      hip: pick(landmarks,23), knee: pick(landmarks,25), ank: pick(landmarks,27)
-    };
-    const right = {
-      sh: pick(landmarks,12), el: pick(landmarks,14), wr: pick(landmarks,16),
-      hip: pick(landmarks,24), knee: pick(landmarks,26), ank: pick(landmarks,28)
-    };
+.small{ color:var(--muted); font-size:13px; line-height:1.35; }
 
-    const sumV = (s) => (s.sh?.v||0)+(s.el?.v||0)+(s.wr?.v||0)+(s.hip?.v||0)+(s.knee?.v||0)+(s.ank?.v||0);
-    const side = sumV(right) > sumV(left) ? right : left;
+.fieldRow{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:12px;
+  margin-bottom:10px;
+}
+@media (max-width: 820px){
+  .fieldRow{ grid-template-columns: 1fr; }
+}
 
-    const stab = sumV(side)/6; // 0..1
-    const knee = (side.hip && side.knee && side.ank) ? angle(side.hip, side.knee, side.ank) : null;
-    const elbow = (side.sh && side.el && side.wr) ? angle(side.sh, side.el, side.wr) : null;
+label{ display:block; font-size:13px; color:var(--muted); margin:8px 0 6px; }
+input, select, textarea{
+  width:100%;
+  background: rgba(0,0,0,.25);
+  border:1px solid rgba(255,255,255,.10);
+  color: var(--text);
+  padding:10px 12px;
+  border-radius: 12px;
+  outline:none;
+}
+textarea{ min-height:90px; resize:vertical; }
 
-    // tułów: kąt (shoulder-hip) względem pionu
-    let torso = null;
-    if(side.sh && side.hip){
-      const dx = side.sh.x - side.hip.x;
-      const dy = side.sh.y - side.hip.y;
-      const ang = Math.atan2(Math.abs(dx), Math.abs(dy)) * (180/Math.PI); // 0 pion, 90 poziom
-      torso = ang;
-    }
+input:focus, select:focus, textarea:focus{
+  border-color: rgba(37,99,235,.45);
+  box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
 
-    return { knee, elbow, torso, stab, side };
-  }
+.btn{
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+  color: var(--text);
+  padding:10px 14px;
+  border-radius: 12px;
+  cursor:pointer;
+  font-weight:650;
+}
+.btn:hover{ border-color: rgba(255,255,255,.18); }
+.btn.primary{
+  background: linear-gradient(180deg, var(--blue), var(--blue2));
+  border-color: rgba(255,255,255,.08);
+}
+.btn.secondary{
+  background: rgba(37,99,235,.10);
+  border-color: rgba(37,99,235,.25);
+}
+.btn.danger{
+  background: rgba(239,68,68,.12);
+  border-color: rgba(239,68,68,.35);
+}
 
-  function drawFrame(video){
-    ctx.clearRect(0,0,canvasEl.width, canvasEl.height);
-    ctx.drawImage(video, 0,0,canvasEl.width, canvasEl.height);
-    // punkty świadomie “narazie bez” — zostawiamy tylko obraz
-  }
+.pill{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:10px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.10);
+  font-weight:650;
+}
+.dot{
+  width:10px; height:10px; border-radius:50%;
+  background: rgba(255,255,255,.25);
+}
+.dot.on{ background: var(--ok); box-shadow: 0 0 0 4px rgba(34,197,94,.15); }
 
-  async function start(session){
-    if(running) return;
-    running = true;
+.badge{
+  display:inline-flex;
+  align-items:center;
+  padding:10px 12px;
+  border-radius: 999px;
+  background: rgba(37,99,235,.14);
+  border:1px solid rgba(37,99,235,.30);
+  font-weight:750;
+}
 
-    try{
-      setStatus("ON", true);
-      setHint("Ładowanie…", "Uruchamiam kamerę i analizę.");
+.steps{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin: 10px 0 14px;
+}
+.stepTag{
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.03);
+  cursor:pointer;
+  font-weight:650;
+}
+.stepTag.active{
+  background: rgba(37,99,235,.18);
+  border-color: rgba(37,99,235,.35);
+}
 
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode:"user", width:{ideal:1280}, height:{ideal:720} },
-        audio: false
-      });
-      videoEl.srcObject = stream;
-      await videoEl.play();
-      resizeCanvas();
+.navRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:14px;
+}
+.rightBtns{ display:flex; gap:10px; flex-wrap:wrap; }
 
-      // MediaPipe Pose
-      pose = new Pose.Pose({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
-      });
-      pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        enableSegmentation: false,
-        smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
-      });
+.divider{
+  height:1px;
+  background: rgba(255,255,255,.10);
+  margin: 12px 0;
+}
 
-      pose.onResults((res) => {
-        if(!running) return;
-        drawFrame(videoEl);
+.grid{
+  display:grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap:12px;
+}
+@media (max-width: 980px){
+  .grid{ grid-template-columns: 1fr; }
+}
 
-        if(!res.poseLandmarks){
-          lastMetrics = { knee:null, elbow:null, torso:null, stab:0 };
-          setKpi("knee","—");
-          setKpi("elbow","—");
-          setKpi("torso","—");
-          setKpi("stab","—");
-          setHint("Brak sylwetki", "Ustaw się bokiem i upewnij się, że biodro–kolano–kostka są w kadrze.");
-          return;
-        }
+.videoWrap{
+  position:relative;
+  width:100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 16px;
+  overflow:hidden;
+  border:1px solid rgba(255,255,255,.08);
+}
+video, canvas{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit: cover;
+}
 
-        const m = compute(res.poseLandmarks);
-        lastMetrics = { knee:m.knee, elbow:m.elbow, torso:m.torso, stab:m.stab };
+.instr{
+  border:1px dashed rgba(255,255,255,.14);
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: rgba(0,0,0,.16);
+}
+.instr h3{
+  margin:0 0 6px;
+  font-size:13px;
+  color: var(--muted);
+  font-weight:750;
+  letter-spacing:.2px;
+}
+.big{ font-size:22px; font-weight:850; margin:0 0 4px; }
 
-        setKpi("knee", m.knee==null ? "—" : (Math.round(m.knee*10)/10).toFixed(1)+"°");
-        setKpi("elbow", m.elbow==null ? "—" : (Math.round(m.elbow*10)/10).toFixed(1)+"°");
-        setKpi("torso", m.torso==null ? "—" : (Math.round(m.torso*10)/10).toFixed(1)+"°");
-        setKpi("stab", m.stab==null ? "—" : Math.round(m.stab*100)+"%");
+.kpis{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+@media (max-width: 520px){
+  .kpis{ grid-template-columns:1fr; }
+}
+.kpi{ padding:12px; }
+.kpi .label{ color:var(--muted); font-size:12px; font-weight:700; }
+.kpi .val{ font-size:22px; font-weight:900; margin:6px 0; }
+.kpi .desc{ color:var(--muted); font-size:12px; }
 
-        // prosta wskazówka stabilności
-        if((m.stab||0) < 0.35){
-          setHint("Słaba widoczność", "Popraw światło lub ustaw kamerę tak, by widoczne były kluczowe punkty.");
-        }else{
-          setHint("OK", "Możesz kręcić i zapisać pomiar. W razie zmian użyj „Dodaj zmianę”.");
-        }
-      });
+.debug{
+  padding:10px 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size:12px;
+  color: rgba(229,231,235,.85);
+  background: rgba(0,0,0,.25);
+  border-radius: 12px;
+}
 
-      // loop
-      const tick = async () => {
-        if(!running) return;
-        try{
-          await pose.send({ image: videoEl });
-        }catch(e){
-          // bywa przy szybkich stop/start
-        }
-        requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
+.liveTop{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.liveBtns{ display:flex; gap:10px; flex-wrap:wrap; }
 
-      dbg("kamera uruchomiona");
-    }catch(err){
-      dbg("błąd kamery: " + (err?.message || err));
-      setHint("Brak kamery", "Sprawdź zezwolenia (kłódka), zamknij Teams/Zoom/OBS i spróbuj ponownie.");
-      setStatus("OFF", false);
-      running = false;
-    }
-  }
+.reportBox .small{ margin:4px 0; }
 
-  function stop(){
-    running = false;
-    setStatus("OFF", false);
-    setHint("Stop", "Kamera zatrzymana.");
+.shots{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+  margin-top:12px;
+}
+@media (max-width: 980px){
+  .shots{ grid-template-columns: 1fr; }
+}
 
-    try{ if(videoEl) videoEl.pause(); }catch(e){}
-    if(stream){
-      for(const t of stream.getTracks()) t.stop();
-      stream = null;
-    }
-    videoEl.srcObject = null;
-    dbg("stop");
-  }
+.shotImg{
+  width:100%;
+  border-radius: 14px;
+  margin-top:10px;
+  border:1px solid rgba(255,255,255,.10);
+}
 
-  function getLastMetrics(){
-    return lastMetrics;
-  }
-
-  function snapshot(){
-    try{
-      // snapshot = aktualny canvas (wideo)
-      return canvasEl.toDataURL("image/jpeg", 0.85);
-    }catch(e){
-      return "";
-    }
-  }
-
-  return { start, stop, getLastMetrics, snapshot };
+.modal{
+  position:fixed;
+  inset:0;
+  background: rgba(0,0,0,.55);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:16px;
+  z-index: 50;
+}
+.modalInner{
+  width:min(700px, 96vw);
 }
