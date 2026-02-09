@@ -1,11 +1,8 @@
 {
   "name": "Bikefit LIVE",
   "short_name": "Bikefit",
-  "description": "Live bikefitting z analizą pozycji i instrukcjami",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "orientation": "landscape",
   "background_color": "#020617",
   "theme_color": "#020617",
   "icons": []

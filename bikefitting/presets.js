@@ -1,28 +1,35 @@
-export function toLabelDiscipline(d){
-  return d==="mtb" ? "MTB" : (d==="gravel" ? "GRAVEL" : "SZOSA");
-}
-export function toLabelGoal(g){
-  return g==="comfort" ? "Komfort" : (g==="aero" ? "Aero" : "Neutral");
-}
-
 export function presets(discipline, goal){
-  // MVP progi — dopracujemy na Twoich testach
+  // Proste, ale działające presety MVP.
+  // Później możemy dopracować zakresy (np. per aero/komfort + antropometria).
   const base = {
-    road:   { knee:[140,155], elbow:[140,165], torso:[30,55] },
-    gravel: { knee:[138,153], elbow:[138,162], torso:[28,52] },
-    mtb:    { knee:[135,150], elbow:[135,158], torso:[25,48] }
-  };
+    road:   { knee:[145,160], elbow:[150,175], torso:[35,55] },
+    gravel: { knee:[143,160], elbow:[150,176], torso:[35,58] },
+    mtb:    { knee:[140,158], elbow:[155,178], torso:[40,65] }
+  }[discipline] || { knee:[145,160], elbow:[150,175], torso:[35,55] };
 
-  const adj = (goal==="comfort")
-    ? { knee:-2, elbow:-3, torso:-3 }
-    : (goal==="aero")
-      ? { knee:+2, elbow:+2, torso:+3 }
-      : { knee:0, elbow:0, torso:0 };
+  const g = goal || "neutral";
+  const tweak = (arr, a, b) => [arr[0]+a, arr[1]+b];
 
-  const b = base[discipline] || base.road;
-  return {
-    knee:[ b.knee[0]+adj.knee, b.knee[1]+adj.knee ],
-    elbow:[ b.elbow[0]+adj.elbow, b.elbow[1]+adj.elbow ],
-    torso:[ b.torso[0]+adj.torso, b.torso[1]+adj.torso ],
-  };
+  if(g === "comfort"){
+    return {
+      knee: base.knee,
+      elbow: tweak(base.elbow, -2, -2),
+      torso: tweak(base.torso, 5, 8)
+    };
+  }
+  if(g === "aero"){
+    return {
+      knee: base.knee,
+      elbow: tweak(base.elbow, 0, 0),
+      torso: tweak(base.torso, -6, -4)
+    };
+  }
+  return base; // neutral
+}
+
+export function toLabelDiscipline(v){
+  return v==="mtb" ? "MTB" : v==="gravel" ? "GRAVEL" : "SZOSA";
+}
+export function toLabelGoal(v){
+  return v==="comfort" ? "Komfort" : v==="aero" ? "Aero" : "Neutral";
 }

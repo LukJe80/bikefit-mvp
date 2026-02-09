@@ -89,7 +89,7 @@
         <input id="footCm" type="number" min="15" max="35" placeholder="np. 27.5" />
       </div>
       <div>
-        <label>Długość ramion (cm) (opcjonalnie)</label>
+        <label>Długość ramion (cm) (opcjonalnie, później)</label>
         <input id="armsCm" type="number" min="40" max="120" placeholder="np. 62" />
       </div>
     </div>
@@ -248,42 +248,6 @@
       </div>
     </div>
 
-    <!-- Panel zmian (pełna szerokość) -->
-    <div id="changePanel" class="card changePanelPro" style="display:none; margin-top:12px;">
-      <div class="h">Zmiana przed pomiarem (co przestawiłeś)</div>
-
-      <div class="fieldRow" style="margin-top:10px;">
-        <div>
-          <label>Siodło (mm) ↑/↓</label>
-          <input id="chgSaddleH" type="number" placeholder="np. -5 lub +3" />
-        </div>
-        <div>
-          <label>Siodło przód/tył (mm)</label>
-          <input id="chgSaddleFB" type="number" placeholder="np. -3 (do tyłu) / +3 (do przodu)" />
-        </div>
-        <div>
-          <label>Kokpit / podkładki (mm) ↑/↓</label>
-          <input id="chgCockpitH" type="number" placeholder="np. +10" />
-        </div>
-        <div>
-          <label>Mostek (mm) zmiana długości</label>
-          <input id="chgStem" type="number" placeholder="np. -10" />
-        </div>
-      </div>
-
-      <label>Notatka zmiany</label>
-      <textarea id="chgNote" placeholder="np. klient drętwieją dłonie, podniosłem kokpit..."></textarea>
-
-      <div class="navRow">
-        <button id="chgCancel" class="btn">Zamknij</button>
-        <button id="chgApply" class="btn primary">Zapisz zmianę</button>
-      </div>
-
-      <div class="small" style="opacity:.8;margin-top:8px;">
-        Tip: wartości dodatnie = w górę / do przodu / dłużej, ujemne = w dół / do tyłu / krócej.
-      </div>
-    </div>
-
     <div class="grid" style="margin-top:12px;">
       <div class="card">
         <div class="h">Podgląd + punkty</div>
@@ -335,6 +299,42 @@
         <div id="debug" class="card debug">DBG: gotowe.</div>
       </div>
     </div>
+
+    <!-- Panel zmian (pełna szerokość) -->
+    <div id="changePanel" class="card changePanelPro" style="display:none; margin-top:12px;">
+      <div class="h">Zmiana przed pomiarem (co przestawiłeś)</div>
+
+      <div class="fieldRow" style="margin-top:10px;">
+        <div>
+          <label>Siodło (mm) ↑/↓</label>
+          <input id="chgSaddleH" type="number" placeholder="np. -5 lub +3" />
+        </div>
+        <div>
+          <label>Siodło przód/tył (mm)</label>
+          <input id="chgSaddleFB" type="number" placeholder="np. -3 (do tyłu) / +3 (do przodu)" />
+        </div>
+        <div>
+          <label>Kokpit / podkładki (mm) ↑/↓</label>
+          <input id="chgCockpitH" type="number" placeholder="np. +10" />
+        </div>
+        <div>
+          <label>Mostek (mm) zmiana długości</label>
+          <input id="chgStem" type="number" placeholder="np. -10" />
+        </div>
+      </div>
+
+      <label>Notatka zmiany</label>
+      <textarea id="chgNote" placeholder="np. klient drętwieją dłonie, podniosłem kokpit..."></textarea>
+
+      <div class="navRow">
+        <button id="chgCancel" class="btn">Zamknij</button>
+        <button id="chgApply" class="btn primary">Zapisz zmianę</button>
+      </div>
+
+      <div class="small" style="opacity:.8;">
+        Tip: Zmiana przypnie się do kolejnego „Zapisz pomiar”.
+      </div>
+    </div>
   </section>
 
   <!-- KROK 5 -->
@@ -347,10 +347,11 @@
       <div class="small"><b>Dyscyplina / cel:</b> <span id="rBike">—</span></div>
       <div class="divider"></div>
       <div class="small"><b>Notatki:</b> <span id="rNotes">—</span></div>
+    </div>
 
-      <div class="divider"></div>
-      <div class="h" style="margin:0;">Rower klienta (stan wyjściowy)</div>
-      <div id="rSetup"></div>
+    <div class="card" style="margin-top:12px;">
+      <div class="h">Rower klienta (stan wyjściowy)</div>
+      <div id="rSetup" class="small">—</div>
     </div>
 
     <div style="margin-top:12px;" class="card">
