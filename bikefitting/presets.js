@@ -1,35 +1,30 @@
-export function presets(discipline, goal){
-  // Proste, ale działające presety MVP.
-  // Później możemy dopracować zakresy (np. per aero/komfort + antropometria).
-  const base = {
-    road:   { knee:[145,160], elbow:[150,175], torso:[35,55] },
-    gravel: { knee:[143,160], elbow:[150,176], torso:[35,58] },
-    mtb:    { knee:[140,158], elbow:[155,178], torso:[40,65] }
-  }[discipline] || { knee:[145,160], elbow:[150,175], torso:[35,55] };
-
-  const g = goal || "neutral";
-  const tweak = (arr, a, b) => [arr[0]+a, arr[1]+b];
-
-  if(g === "comfort"){
-    return {
-      knee: base.knee,
-      elbow: tweak(base.elbow, -2, -2),
-      torso: tweak(base.torso, 5, 8)
-    };
+export const presets = {
+  road: {
+    comfort: { knee:{min:140,max:150}, elbow:{min:85,max:105}, torso:{min:40,max:55} },
+    neutral: { knee:{min:142,max:152}, elbow:{min:80,max:100}, torso:{min:35,max:50} },
+    aero:    { knee:{min:145,max:155}, elbow:{min:70,max:90},  torso:{min:25,max:40} }
+  },
+  gravel: {
+    comfort: { knee:{min:140,max:150}, elbow:{min:90,max:110}, torso:{min:40,max:55} },
+    neutral: { knee:{min:142,max:152}, elbow:{min:85,max:105}, torso:{min:35,max:50} },
+    aero:    { knee:{min:145,max:155}, elbow:{min:75,max:95},  torso:{min:25,max:40} }
+  },
+  mtb: {
+    comfort: { knee:{min:140,max:150}, elbow:{min:95,max:115}, torso:{min:40,max:60} },
+    neutral: { knee:{min:142,max:152}, elbow:{min:90,max:110}, torso:{min:35,max:55} },
+    aero:    { knee:{min:145,max:155}, elbow:{min:80,max:100}, torso:{min:25,max:45} }
   }
-  if(g === "aero"){
-    return {
-      knee: base.knee,
-      elbow: tweak(base.elbow, 0, 0),
-      torso: tweak(base.torso, -6, -4)
-    };
-  }
-  return base; // neutral
-}
+};
 
 export function toLabelDiscipline(v){
-  return v==="mtb" ? "MTB" : v==="gravel" ? "GRAVEL" : "SZOSA";
+  if(v==="road") return "SZOSA";
+  if(v==="gravel") return "GRAVEL";
+  if(v==="mtb") return "MTB";
+  return "—";
 }
 export function toLabelGoal(v){
-  return v==="comfort" ? "Komfort" : v==="aero" ? "Aero" : "Neutral";
+  if(v==="comfort") return "Komfort";
+  if(v==="neutral") return "Neutral";
+  if(v==="aero") return "Aero";
+  return "—";
 }
