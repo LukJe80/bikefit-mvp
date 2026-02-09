@@ -1,30 +1,28 @@
-export const presets = {
-  road: {
-    comfort: { knee:{min:140,max:150}, elbow:{min:85,max:105}, torso:{min:40,max:55} },
-    neutral: { knee:{min:142,max:152}, elbow:{min:80,max:100}, torso:{min:35,max:50} },
-    aero:    { knee:{min:145,max:155}, elbow:{min:70,max:90},  torso:{min:25,max:40} }
-  },
-  gravel: {
-    comfort: { knee:{min:140,max:150}, elbow:{min:90,max:110}, torso:{min:40,max:55} },
-    neutral: { knee:{min:142,max:152}, elbow:{min:85,max:105}, torso:{min:35,max:50} },
-    aero:    { knee:{min:145,max:155}, elbow:{min:75,max:95},  torso:{min:25,max:40} }
-  },
-  mtb: {
-    comfort: { knee:{min:140,max:150}, elbow:{min:95,max:115}, torso:{min:40,max:60} },
-    neutral: { knee:{min:142,max:152}, elbow:{min:90,max:110}, torso:{min:35,max:55} },
-    aero:    { knee:{min:145,max:155}, elbow:{min:80,max:100}, torso:{min:25,max:45} }
-  }
-};
-
-export function toLabelDiscipline(v){
-  if(v==="road") return "SZOSA";
-  if(v==="gravel") return "GRAVEL";
-  if(v==="mtb") return "MTB";
-  return "—";
+export function toLabelDiscipline(d){
+  return d==="mtb" ? "MTB" : (d==="gravel" ? "GRAVEL" : "SZOSA");
 }
-export function toLabelGoal(v){
-  if(v==="comfort") return "Komfort";
-  if(v==="neutral") return "Neutral";
-  if(v==="aero") return "Aero";
-  return "—";
+export function toLabelGoal(g){
+  return g==="comfort" ? "Komfort" : (g==="aero" ? "Aero" : "Neutral");
+}
+
+export function presets(discipline, goal){
+  // MVP progi — dopracujemy na Twoich testach
+  const base = {
+    road:   { knee:[140,155], elbow:[140,165], torso:[30,55] },
+    gravel: { knee:[138,153], elbow:[138,162], torso:[28,52] },
+    mtb:    { knee:[135,150], elbow:[135,158], torso:[25,48] }
+  };
+
+  const adj = (goal==="comfort")
+    ? { knee:-2, elbow:-3, torso:-3 }
+    : (goal==="aero")
+      ? { knee:+2, elbow:+2, torso:+3 }
+      : { knee:0, elbow:0, torso:0 };
+
+  const b = base[discipline] || base.road;
+  return {
+    knee:[ b.knee[0]+adj.knee, b.knee[1]+adj.knee ],
+    elbow:[ b.elbow[0]+adj.elbow, b.elbow[1]+adj.elbow ],
+    torso:[ b.torso[0]+adj.torso, b.torso[1]+adj.torso ],
+  };
 }
