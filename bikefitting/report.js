@@ -1,223 +1,157 @@
 import { presets, toLabelDiscipline, toLabelGoal } from "./presets.js";
 
-function safe(v){ return (v==null || v==="") ? null : v; }
-function num(v){
-  if(v==null) return null;
-  const x = Number(String(v).replace(",", "."));
-  return Number.isFinite(x) ? x : null;
+function fmtNum(x){
+  if(x==null || !isFinite(x)) return "—";
+  return (Math.round(x*10)/10).toFixed(1) + "°";
 }
-function fmt(v, unit=""){
-  if(v==null || v==="") return "—";
-  return `${v}${unit}`;
+function fmtDate(ts){
+  try{
+    const d = new Date(ts);
+    return d.toLocaleString();
+  }catch(e){ return ""; }
 }
 
-function fmtSetup(setup){
-  if(!setup) return "Brak danych o rowerze klienta (opcjonalne).";
+function renderSetup(session){
+  const s = session.setup || {};
   const lines = [];
-  const bikeModel = safe(setup.bikeModel);
-  const frameSize = safe(setup.frameSize);
-  if(bikeModel || frameSize){
-    lines.push(`• Rower: ${bikeModel || "—"} ${frameSize ? `(rozmiar: ${frameSize})` : ""}`.trim());
-  }
+  const add = (label, val) => {
+    const v = (val ?? "").toString().trim();
+    if(v) lines.push(`<b>${label}:</b> ${escapeHtml(v)}`);
+  };
 
-  const stemLen = safe(setup.stemLen);
-  const stemAngle = safe(setup.stemAngle);
-  if(stemLen || stemAngle){
-    lines.push(`• Mostek: ${stemLen ? stemLen + " mm" : "—"} ${stemAngle ? ` / ${stemAngle}°` : ""}`.trim());
-  }
+  add("Model", s.bikeModel);
+  add("Rozmiar ramy", s.frameSize);
+  add("Mostek (mm)", s.stemLen);
+  add("Kąt mostka (°)", s.stemAng);
+  add("Kierownica (mm)", s.barWidth);
+  add("Wys. kierownicy (mm)", s.barHeight);
+  add("Wys. siodła (mm)", s.saddleHeight);
+  add("Setback siodła (mm)", s.saddleSetback);
+  add("Kąt siodła (°)", s.saddleTilt);
+  add("Korby (mm)", s.crankLen);
+  add("Uwagi", s.setupNotes);
 
-  const barWidth = safe(setup.barWidth);
-  const barHeight = safe(setup.barHeight);
-  if(barWidth || barHeight){
-    lines.push(`• Kierownica: ${barWidth ? barWidth + " mm" : "—"} ${barHeight ? ` / wysokość: ${barHeight} mm` : ""}`.trim());
-  }
-
-  const saddleHeight = safe(setup.saddleHeight);
-  const saddleSetback = safe(setup.saddleSetback);
-  const saddleTilt = safe(setup.saddleTilt);
-  if(saddleHeight || saddleSetback || saddleTilt){
-    lines.push(`• Siodło: wys. ${saddleHeight ? saddleHeight + " mm" : "—"} / setback ${saddleSetback ? saddleSetback + " mm" : "—"} / kąt ${saddleTilt ? saddleTilt + "°" : "—"}`);
-  }
-
-  const crankLen = safe(setup.crankLen);
-  if(crankLen){
-    lines.push(`• Korby: ${crankLen} mm`);
-  }
-
-  if(lines.length===0) return "Brak danych o rowerze klienta (opcjonalne).";
+  if(!lines.length) return "Brak danych o rowerze klienta (opcjonalne).";
   return lines.join("<br>");
 }
 
-function fmtAdjustments(adj){
-  if(!adj) return "—";
-  const parts = [];
-
-  const cleatsFB = safe(adj.cleatsFB);
-  const cleatsLR = safe(adj.cleatsLR);
-  if(cleatsFB || cleatsLR){
-    parts.push(`Bloki: przód/tył ${cleatsFB ? cleatsFB + " mm" : "—"}, lewo/prawo ${cleatsLR ? cleatsLR + " mm" : "—"}`);
-  }
-
-  const saddleH = safe(adj.saddleH);
-  const saddleFB = safe(adj.saddleFB);
-  const saddleTilt = safe(adj.saddleTilt);
-  if(saddleH || saddleFB || saddleTilt){
-    parts.push(`Siodło: wys. ${saddleH ? saddleH + " mm" : "—"}, przód/tył ${saddleFB ? saddleFB + " mm" : "—"}, kąt ${saddleTilt ? saddleTilt + "°" : "—"}`);
-  }
-
-  const stemLen = safe(adj.stemLen);
-  const stemAngle = safe(adj.stemAngle);
-  if(stemLen || stemAngle){
-    parts.push(`Mostek: długość ${stemLen ? stemLen + " mm" : "—"}, kąt ${stemAngle ? stemAngle + "°" : "—"}`);
-  }
-
-  const misc = safe(adj.misc);
-  if(misc){
-    parts.push(`Inne: ${misc}`);
-  }
-
-  const notes = safe(adj.notes);
-  if(notes){
-    parts.push(`Notatki: ${notes}`);
-  }
-
-  if(parts.length===0) return "—";
-  return "• " + parts.join("<br>• ");
+function renderChanges(session){
+  const arr = Array.isArray(session.changes) ? session.changes : [];
+  if(!arr.length) return "Brak zapisanych zmian (opcjonalne).";
+  const items = arr
+    .slice()
+    .sort((a,b)=> (a.ts||0)-(b.ts||0))
+    .map(ch => `• ${escapeHtml(ch.text || "")} <span style="opacity:.7">(${escapeHtml(fmtDate(ch.ts||0))})</span>`);
+  return items.join("<br>");
 }
 
-function computeReco(session, before, after){
-  const discipline = session?.bike?.discipline || "road";
-  const goal = session?.bike?.goal || "neutral";
+function escapeHtml(s){
+  return String(s)
+    .replaceAll("&","&amp;")
+    .replaceAll("<","&lt;")
+    .replaceAll(">","&gt;")
+    .replaceAll('"',"&quot;")
+    .replaceAll("'","&#039;");
+}
 
-  const p = (presets?.[discipline]?.[goal]) || null;
-
-  const recos = [];
-
-  if(!before || !after){
-    recos.push("Zapisz pomiary PRZED i PO, aby zobaczyć porównanie i rekomendacje.");
-    return recos;
+function fillSelect(sel, arr){
+  sel.innerHTML = "";
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "— wybierz —";
+  sel.appendChild(opt0);
+  for(const m of arr){
+    const o = document.createElement("option");
+    o.value = m.id;
+    o.textContent = `${m.label} • ${fmtDate(m.ts)}`;
+    sel.appendChild(o);
   }
+}
 
-  function inRange(x, lo, hi){
-    if(x==null || lo==null || hi==null) return null;
-    return x>=lo && x<=hi;
-  }
+function getById(arr, id){
+  return arr.find(x => x.id === id) || null;
+}
 
-  const kneeAfter = num(after.knee);
-  const elbowAfter = num(after.elbow);
-  const torsoAfter = num(after.torso);
+function buildReco(before, after, discipline, goal){
+  if(!before || !after) return "Zapisz pomiary PRZED i PO, aby zobaczyć porównanie i rekomendacje.";
+
+  const p = presets[discipline]?.[goal] || null;
+  const lines = [];
+
+  const diff = (a,b) => (a==null||b==null) ? null : (b-a);
+
+  const dk = diff(before.knee, after.knee);
+  const de = diff(before.elbow, after.elbow);
+  const dt = diff(before.torso, after.torso);
+
+  lines.push(`<b>PRZED:</b> kolano ${fmtNum(before.knee)}, łokieć ${fmtNum(before.elbow)}, tułów ${fmtNum(before.torso)}`);
+  lines.push(`<b>PO:</b> kolano ${fmtNum(after.knee)}, łokieć ${fmtNum(after.elbow)}, tułów ${fmtNum(after.torso)}`);
 
   if(p){
-    if(kneeAfter!=null && p.knee){
-      const ok = inRange(kneeAfter, p.knee[0], p.knee[1]);
-      if(ok===true) recos.push(`✅ Kąt kolana po: ${kneeAfter.toFixed(1)}° (w normie ${p.knee[0]}–${p.knee[1]}°).`);
-      if(ok===false) recos.push(`⚠️ Kąt kolana po: ${kneeAfter.toFixed(1)}° (cel ${p.knee[0]}–${p.knee[1]}°). Rozważ korektę wysokości siodła.`);
-    }
-
-    if(elbowAfter!=null && p.elbow){
-      const ok = inRange(elbowAfter, p.elbow[0], p.elbow[1]);
-      if(ok===true) recos.push(`✅ Kąt łokcia po: ${elbowAfter.toFixed(1)}° (w normie ${p.elbow[0]}–${p.elbow[1]}°).`);
-      if(ok===false) recos.push(`⚠️ Kąt łokcia po: ${elbowAfter.toFixed(1)}° (cel ${p.elbow[0]}–${p.elbow[1]}°). Rozważ korektę reach (mostek / klamki / setback).`);
-    }
-
-    if(torsoAfter!=null && p.torso){
-      const ok = inRange(torsoAfter, p.torso[0], p.torso[1]);
-      if(ok===true) recos.push(`✅ Kąt tułowia po: ${torsoAfter.toFixed(1)}° (w normie ${p.torso[0]}–${p.torso[1]}°).`);
-      if(ok===false) recos.push(`⚠️ Kąt tułowia po: ${torsoAfter.toFixed(1)}° (cel ${p.torso[0]}–${p.torso[1]}°). Rozważ korektę dropu / wysokości kokpitu.`);
-    }
-  }else{
-    recos.push("Brak presetu dla tej dyscypliny/celu (to nie powinno się zdarzyć).");
+    lines.push(`<br><b>Zakresy (preset):</b> kolano ${p.knee.min}–${p.knee.max}°, łokieć ${p.elbow.min}–${p.elbow.max}°, tułów ${p.torso.min}–${p.torso.max}°`);
   }
 
-  const stab = num(after.stab);
-  if(stab!=null){
-    recos.push(`ℹ️ Stabilność punktów: ${(stab*100).toFixed(0)}%.`);
-  }
+  if(dk!=null) lines.push(`• Zmiana kolana: ${dk>0?"+":""}${(Math.round(dk*10)/10).toFixed(1)}°`);
+  if(de!=null) lines.push(`• Zmiana łokcia: ${de>0?"+":""}${(Math.round(de*10)/10).toFixed(1)}°`);
+  if(dt!=null) lines.push(`• Zmiana tułowia: ${dt>0?"+":""}${(Math.round(dt*10)/10).toFixed(1)}°`);
 
-  const adjTxt = fmtAdjustments(session?.adjustments);
-  if(adjTxt && adjTxt !== "—"){
-    recos.push(`<div class="divider" style="margin:10px 0;"></div><b>Zmiany wprowadzone:</b><br>${adjTxt}`);
-  }
-
-  return recos;
+  lines.push(`<br><b>Wskazówka:</b> Traktuj to jako szybki raport „PRZED/PO”. Docelowo dołożymy więcej metryk (np. łuk pleców, kąt stopy).`);
+  return lines.join("<br>");
 }
 
-export function renderReportUI(session, els){
-  if(els.rClient) els.rClient.textContent = session?.client?.name || "—";
-  if(els.rDate) els.rDate.textContent = session?.client?.date || "—";
-  if(els.rBike) els.rBike.textContent = `${toLabelDiscipline(session?.bike?.discipline)} • ${toLabelGoal(session?.bike?.goal)}`;
-  if(els.rNotes) els.rNotes.textContent = session?.client?.notes || "—";
+export function renderReportUI(session, ui){
+  ui.rClient.textContent = session.client?.name || "—";
+  ui.rDate.textContent = session.client?.date || "—";
+  ui.rBike.textContent = `${toLabelDiscipline(session.bike?.discipline)} • ${toLabelGoal(session.bike?.goal)}`;
+  ui.rNotes.textContent = session.client?.notes || "—";
 
-  if(els.rSetup){
-    els.rSetup.innerHTML = fmtSetup(session?.bikeSetup);
+  // setup + changes
+  ui.rSetup.innerHTML = renderSetup(session);
+  ui.rChanges.innerHTML = renderChanges(session);
+
+  const arr = session.measurements || [];
+  fillSelect(ui.beforeSel, arr);
+  fillSelect(ui.afterSel, arr);
+
+  function renderShot(which, m){
+    const meta = which==="before" ? ui.beforeMeta : ui.afterMeta;
+    const img  = which==="before" ? ui.beforeImg  : ui.afterImg;
+    const ang  = which==="before" ? ui.beforeAngles : ui.afterAngles;
+
+    if(!m){
+      meta.textContent = "—";
+      img.removeAttribute("src");
+      img.style.display = "none";      // <-- brak ikony broken-image
+      ang.textContent = "—";
+      return;
+    }
+
+    meta.textContent = `${m.label} • ${fmtDate(m.ts)}`;
+    if(m.imgDataUrl){
+      img.src = m.imgDataUrl;
+      img.style.display = "block";
+    }else{
+      img.removeAttribute("src");
+      img.style.display = "none";
+    }
+    ang.textContent = `kolano ${fmtNum(m.knee)} | łokieć ${fmtNum(m.elbow)} | tułów ${fmtNum(m.torso)} | stabilność ${m.stab!=null ? Math.round(m.stab*100)+"%" : "—"}`;
   }
 
-  const ms = Array.isArray(session?.measurements) ? session.measurements : [];
-  const byId = Object.fromEntries(ms.map(m => [m.id, m]));
-
-  const beforeSel = els.beforeSel;
-  const afterSel  = els.afterSel;
-
-  function fillSelect(sel){
-    if(!sel) return;
-    sel.innerHTML = "";
-    const opt0 = document.createElement("option");
-    opt0.value = "";
-    opt0.textContent = "— wybierz —";
-    sel.appendChild(opt0);
-
-    for(const m of ms){
-      const o = document.createElement("option");
-      o.value = m.id;
-      const time = new Date(m.ts || Date.now()).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
-      o.textContent = `${m.label || "pomiar"} • ${time}`;
-      sel.appendChild(o);
-    }
-  }
-  fillSelect(beforeSel);
-  fillSelect(afterSel);
-
-  if(beforeSel && beforeSel.value==="" && ms.length>=1) beforeSel.value = ms[0].id;
-  if(afterSel && afterSel.value==="" && ms.length>=2) afterSel.value = ms[1].id;
-
-  function renderPair(){
-    const before = beforeSel && beforeSel.value ? byId[beforeSel.value] : null;
-    const after  = afterSel && afterSel.value ? byId[afterSel.value] : null;
-
-    if(els.beforeMeta) els.beforeMeta.textContent = before ? (before.label || "—") : "—";
-    if(els.afterMeta) els.afterMeta.textContent = after ? (after.label || "—") : "—";
-
-    if(els.beforeImg){
-      els.beforeImg.src = before?.imgDataUrl || "";
-      els.beforeImg.style.display = before?.imgDataUrl ? "" : "none";
-    }
-    if(els.afterImg){
-      els.afterImg.src = after?.imgDataUrl || "";
-      els.afterImg.style.display = after?.imgDataUrl ? "" : "none";
-    }
-
-    if(els.beforeAngles){
-      if(before){
-        els.beforeAngles.textContent =
-          `Kolano: ${fmt(before.knee,"°")} • Łokieć: ${fmt(before.elbow,"°")} • Tułów: ${fmt(before.torso,"°")} • Stabilność: ${before.stab!=null ? (Number(before.stab)*100).toFixed(0)+"%" : "—"}`;
-      }else els.beforeAngles.textContent = "—";
-    }
-
-    if(els.afterAngles){
-      if(after){
-        els.afterAngles.textContent =
-          `Kolano: ${fmt(after.knee,"°")} • Łokieć: ${fmt(after.elbow,"°")} • Tułów: ${fmt(after.torso,"°")} • Stabilność: ${after.stab!=null ? (Number(after.stab)*100).toFixed(0)+"%" : "—"}`;
-      }else els.afterAngles.textContent = "—";
-    }
-
-    const recos = computeReco(session, before, after);
-    if(els.recoList){
-      els.recoList.innerHTML = `<ul class="recoUl">${recos.map(r => `<li>${r}</li>`).join("")}</ul>`;
-    }
+  function recompute(){
+    const b = getById(arr, ui.beforeSel.value);
+    const a = getById(arr, ui.afterSel.value);
+    renderShot("before", b);
+    renderShot("after", a);
+    ui.recoList.innerHTML = buildReco(b, a, session.bike?.discipline, session.bike?.goal);
   }
 
-  if(beforeSel) beforeSel.onchange = renderPair;
-  if(afterSel) afterSel.onchange = renderPair;
+  ui.beforeSel.onchange = recompute;
+  ui.afterSel.onchange = recompute;
 
-  renderPair();
+  // domyślne wybory
+  if(arr.length >= 2){
+    ui.beforeSel.value = arr[0].id;
+    ui.afterSel.value = arr[1].id;
+  }
+  recompute();
 }
