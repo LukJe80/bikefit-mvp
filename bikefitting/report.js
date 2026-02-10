@@ -1,164 +1,144 @@
 import { presets, toLabelDiscipline, toLabelGoal } from "./presets.js";
 
+function fmtAngle(x){
+  if(x == null || !isFinite(x)) return "—";
+  return `${x.toFixed(1)}°`;
+}
+function fmtPct(x){
+  if(x == null || !isFinite(x)) return "—";
+  const p = Math.max(0, Math.min(1, x));
+  return `${Math.round(p*100)}%`;
+}
 function fmtDate(ts){
-  const d = new Date(ts);
-  return d.toLocaleString("pl-PL", {
-    year:"numeric", month:"2-digit", day:"2-digit",
-    hour:"2-digit", minute:"2-digit"
-  });
+  try{
+    const d = new Date(ts);
+    const hh = String(d.getHours()).padStart(2,'0');
+    const mm = String(d.getMinutes()).padStart(2,'0');
+    return `${hh}:${mm}`;
+  }catch(e){ return ""; }
 }
 
-function angleText(m){
-  const k = (m.knee==null ? "—" : (Math.round(m.knee)+"°"));
-  const e = (m.elbow==null ? "—" : (Math.round(m.elbow)+"°"));
-  const t = (m.torso==null ? "—" : (Math.round(m.torso)+"°"));
-  const s = (isFinite(m.stab) ? (m.stab+"%") : "—");
-  return `Kolano: ${k} • Łokieć: ${e} • Tułów: ${t} • Stabilność: ${s}`;
-}
+function computeReco(before, after){
+  if(!before || !after) return [];
+  const out = [];
 
-function presetText(m){
-  const p = m.preset;
-  if(!p || !p.knee || !p.elbow || !p.torso) return "";
-  return `Progi: kolano ${p.knee[0]}–${p.knee[1]}°, łokieć ${p.elbow[0]}–${p.elbow[1]}°, tułów ${p.torso[0]}–${p.torso[1]}°.`;
-}
+  const dk = (after.knee ?? NaN) - (before.knee ?? NaN);
+  const de = (after.elbow ?? NaN) - (before.elbow ?? NaN);
+  const dt = (after.torso ?? NaN) - (before.torso ?? NaN);
 
-function instructorText(m){
-  const title = (m.instructorTitle || "").trim();
-  const text  = (m.instructorText || "").trim();
-  if(!title && !text) return "";
-  if(title && text) return `Instruktor: ${title} — ${text}`;
-  return `Instruktor: ${title || text}`;
+  if(isFinite(dk) && Math.abs(dk) >= 2){
+    out.push(`Kąt kolana zmienił się o ${dk>0?"+":""}${dk.toFixed(1)}°. (wpływ: wysokość siodła)`);
+  }
+  if(isFinite(de) && Math.abs(de) >= 2){
+    out.push(`Kąt łokcia zmienił się o ${de>0?"+":""}${de.toFixed(1)}°. (wpływ: reach / mostek)`);
+  }
+  if(isFinite(dt) && Math.abs(dt) >= 2){
+    out.push(`Kąt tułowia zmienił się o ${dt>0?"+":""}${dt.toFixed(1)}°. (wpływ: drop / kokpit)`);
+  }
+
+  if(out.length === 0){
+    out.push("Pomiary są bardzo podobne — wygląda na stabilną zmianę lub brak dużej korekty.");
+  }
+  return out;
 }
 
 function fillSelect(sel, measurements){
   sel.innerHTML = "";
-  if(!measurements.length){
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "Brak pomiarów";
-    sel.appendChild(opt);
-    sel.disabled = true;
-    return;
-  }
-  sel.disabled = false;
-  measurements.forEach((m, idx) => {
+  const opt0 = document.createElement("option");
+  opt0.value = "";
+  opt0.textContent = "— wybierz —";
+  sel.appendChild(opt0);
+
+  for(const m of measurements){
     const opt = document.createElement("option");
     opt.value = m.id;
-    opt.textContent = `${idx+1}. ${m.label} • ${fmtDate(m.ts)}`;
+    opt.textContent = `${m.label} • ${fmtDate(m.ts)} • kolano ${fmtAngle(m.knee)} • łokieć ${fmtAngle(m.elbow)} • tułów ${fmtAngle(m.torso)}`;
     sel.appendChild(opt);
-  });
+  }
 }
 
-function getMeasurementById(session, id){
-  return session.measurements.find(m => m.id === id) || null;
+function pickById(measurements, id){
+  return measurements.find(x => x.id === id) || null;
 }
 
-function renderReco(session, before, after){
-  const out = [];
+function setShotUI(prefix, m, els){
+  const metaEl = els[prefix+"Meta"];
+  const imgEl = els[prefix+"Img"];
+  const angEl = els[prefix+"Angles"];
 
-  // preferuj "after" jako aktualny stan, jak brak – ostatni pomiar
-  const cur = after || session.measurements[session.measurements.length-1] || null;
-
-  // jeśli mamy PRZED i PO – pokaż różnice
-  if(before && after){
-    if(before.knee!=null && after.knee!=null){
-      const dk = after.knee - before.knee;
-      if(Math.abs(dk) >= 2) out.push(`Zmiana kąta kolana: ${dk>0?"+":""}${Math.round(dk)}° (PO vs PRZED).`);
-    }
-    if(before.elbow!=null && after.elbow!=null){
-      const de = after.elbow - before.elbow;
-      if(Math.abs(de) >= 2) out.push(`Zmiana kąta łokcia: ${de>0?"+":""}${Math.round(de)}° (PO vs PRZED).`);
-    }
-    if(before.torso!=null && after.torso!=null){
-      const dt = after.torso - before.torso;
-      if(Math.abs(dt) >= 2) out.push(`Zmiana kąta tułowia: ${dt>0?"+":""}${Math.round(dt)}° (PO vs PRZED).`);
-    }
+  if(!m){
+    metaEl.textContent = "—";
+    imgEl.removeAttribute("src");
+    imgEl.style.display = "none";
+    angEl.textContent = "—";
+    return;
   }
 
-  // Dodatkowo – przypomnij instrukcje PRZED/PO (to jest “mięso” raportu)
-  if(before){
-    const it = instructorText(before);
-    if(it) out.push(`PRZED → ${it.replace("Instruktor: ","")}`);
+  metaEl.textContent = `${m.label} • ${toLabelDiscipline(m.discipline)} • ${toLabelGoal(m.goal)} • ${fmtDate(m.ts)}`;
+  if(m.imgDataUrl){
+    imgEl.style.display = "";
+    imgEl.src = m.imgDataUrl;
+  }else{
+    imgEl.removeAttribute("src");
+    imgEl.style.display = "none";
   }
-  if(after){
-    const it = instructorText(after);
-    if(it) out.push(`PO → ${it.replace("Instruktor: ","")}`);
-  }
-
-  // Jeśli nie ma instrukcji, użyj progów z pomiaru (a jak brak – z aktualnego session)
-  if(cur){
-    // progi: preferuj zapisane w pomiarze
-    const p = (cur.preset && cur.preset.knee) ? cur.preset : presets(session.bike.discipline, session.bike.goal);
-
-    if(cur.knee!=null){
-      if(cur.knee < p.knee[0]) out.push("Siodło prawdopodobnie za nisko → podnieś 3–5 mm i re-test.");
-      else if(cur.knee > p.knee[1]) out.push("Siodło prawdopodobnie za wysoko → opuść 3–5 mm i re-test.");
-      else out.push("Wysokość siodła wygląda OK (wg kolana).");
-    }
-    if(cur.elbow!=null){
-      if(cur.elbow > p.elbow[1]) out.push("Możliwie za duży reach → krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm).");
-      else if(cur.elbow < p.elbow[0]) out.push("Pozycja mocno zebrana → jeśli to nie aero, test dłuższy mostek (+10 mm).");
-      else out.push("Reach / łokieć wygląda OK.");
-    }
-    if(cur.torso!=null){
-      if(cur.torso < p.torso[0]) out.push("Tułów zbyt agresywny → rozważ wyżej kokpit (+5–10 mm).");
-      else if(cur.torso > p.torso[1]) out.push("Tułów zbyt pionowo → jeśli chcesz sportowo, obniż kokpit (5–10 mm).");
-    }
-  }
-
-  if(!out.length) return "Brak danych — zrób pomiary w LIVE i zapisz „PRZED” i „PO”.";
-  return "<ul style='margin:8px 0 0 18px;'>" + out.map(x=>`<li>${x}</li>`).join("") + "</ul>";
+  angEl.textContent = `Kolano: ${fmtAngle(m.knee)} • Łokieć: ${fmtAngle(m.elbow)} • Tułów: ${fmtAngle(m.torso)} • Stabilność: ${fmtPct(m.stab)}`;
 }
 
 export function renderReportUI(session, els){
-  els.rClient.textContent = session.client.name || "—";
-  els.rDate.textContent = session.client.date || "—";
+  els.rClient.textContent = session.client.name ? session.client.name : "—";
+  els.rDate.textContent = session.client.date ? session.client.date : "—";
   els.rBike.textContent = `${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
   els.rNotes.textContent = session.client.notes ? session.client.notes : "—";
 
-  fillSelect(els.beforeSel, session.measurements);
-  fillSelect(els.afterSel, session.measurements);
-
-  if(session.measurements.length >= 1){
-    els.beforeSel.value = session.measurements[0].id;
-    els.afterSel.value = session.measurements[session.measurements.length-1].id;
+  // ✅ Rower klienta (opcjonalne pola z kroku Bike)
+  if(els.rBikeInfoEmpty && els.rBikeInfoGrid){
+    const bi = session.bikeInfo || {};
+    const any = Object.values(bi).some(v => (v!=null && String(v).trim()!==""));
+    els.rBikeInfoEmpty.style.display = any ? "none" : "";
+    els.rBikeInfoGrid.style.display = any ? "" : "none";
+    if(any){
+      if(els.rBikeModel) els.rBikeModel.textContent = bi.bikeModel || "—";
+      if(els.rFrameSize) els.rFrameSize.textContent = bi.frameSize || "—";
+      if(els.rSaddleHeight) els.rSaddleHeight.textContent = bi.saddleHeightMm || "—";
+      if(els.rSaddleSetback) els.rSaddleSetback.textContent = bi.saddleSetbackMm || "—";
+      if(els.rSaddleTilt) els.rSaddleTilt.textContent = bi.saddleTiltDeg || "—";
+      if(els.rCrank) els.rCrank.textContent = bi.crankLengthMm || "—";
+      if(els.rStem) els.rStem.textContent = `${bi.stemLengthMm || "—"} / ${bi.stemAngleDeg || "—"}`;
+      if(els.rBarWidth) els.rBarWidth.textContent = bi.barWidthMm || "—";
+      if(els.rBarHeight) els.rBarHeight.textContent = bi.barHeightFromAxleMm || "—";
+      if(els.rBikeNotes) els.rBikeNotes.textContent = bi.bikeNotes || "—";
+    }
   }
 
-  function updateCompare(){
-    const b = getMeasurementById(session, els.beforeSel.value);
-    const a = getMeasurementById(session, els.afterSel.value);
+  const ms = session.measurements || [];
+  fillSelect(els.beforeSel, ms);
+  fillSelect(els.afterSel, ms);
 
-    els.beforeMeta.textContent = b ? `${b.label} • ${fmtDate(b.ts)} • ${toLabelDiscipline(b.discipline)} • ${toLabelGoal(b.goal)}` : "—";
-    els.afterMeta.textContent  = a ? `${a.label} • ${fmtDate(a.ts)} • ${toLabelDiscipline(a.discipline)} • ${toLabelGoal(a.goal)}` : "—";
+  const state = {
+    beforeId: els.beforeSel.value || "",
+    afterId: els.afterSel.value || ""
+  };
 
-    els.beforeImg.src = (b && b.imgDataUrl) ? b.imgDataUrl : "";
-    els.afterImg.src  = (a && a.imgDataUrl) ? a.imgDataUrl : "";
+  const sync = () => {
+    const before = pickById(ms, els.beforeSel.value);
+    const after = pickById(ms, els.afterSel.value);
 
-    const bLines = [];
-    const aLines = [];
+    setShotUI("before", before, els);
+    setShotUI("after", after, els);
 
-    if(b){
-      bLines.push(angleText(b));
-      const pt = presetText(b);
-      if(pt) bLines.push(pt);
-      const it = instructorText(b);
-      if(it) bLines.push(it);
-    }
-    if(a){
-      aLines.push(angleText(a));
-      const pt = presetText(a);
-      if(pt) aLines.push(pt);
-      const it = instructorText(a);
-      if(it) aLines.push(it);
-    }
+    const reco = computeReco(before, after);
+    els.recoList.innerHTML = reco.map(x => `<div>• ${x}</div>`).join("");
+  };
 
-    els.beforeAngles.textContent = b ? bLines.join("\n") : "—";
-    els.afterAngles.textContent  = a ? aLines.join("\n") : "—";
+  els.beforeSel.onchange = sync;
+  els.afterSel.onchange = sync;
 
-    els.recoList.innerHTML = renderReco(session, b, a);
+  // auto-podpowiedź: jeśli są >=2 pomiary, ustaw 1 i 2 jako before/after
+  if(ms.length >= 2 && (!state.beforeId && !state.afterId)){
+    els.beforeSel.value = ms[0].id;
+    els.afterSel.value = ms[1].id;
   }
 
-  els.beforeSel.onchange = updateCompare;
-  els.afterSel.onchange = updateCompare;
-  updateCompare();
+  sync();
 }

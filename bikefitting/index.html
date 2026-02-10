@@ -122,34 +122,94 @@
       </div>
     </div>
 
-    <!-- PRESETY progów -->
-    <div class="card" style="margin-top:12px;">
-      <div class="h">Presety progów (auto)</div>
-      <div class="small" style="margin-top:6px;">
-        Na podstawie Dyscypliny i Celu ustawiamy zakresy (kolano/łokieć/tułów). Później dodamy tryb PRO z edycją.
-      </div>
-
-      <div class="fieldRow" style="margin-top:10px;">
-        <div class="card" style="padding:10px;">
-          <div class="small"><b>Kolano (DMP / dół)</b></div>
-          <div id="rangeKnee" style="font-size:18px;font-weight:800;">—</div>
-        </div>
-        <div class="card" style="padding:10px;">
-          <div class="small"><b>Łokieć</b></div>
-          <div id="rangeElbow" style="font-size:18px;font-weight:800;">—</div>
-        </div>
-        <div class="card" style="padding:10px;">
-          <div class="small"><b>Tułów</b></div>
-          <div id="rangeTorso" style="font-size:18px;font-weight:800;">—</div>
-        </div>
-      </div>
-
-      <div class="small" id="presetHint" style="margin-top:8px;opacity:.85;">Wybierz Dyscyplinę i Cel.</div>
-    </div>
-
     <div class="small" style="margin-top:10px;">
       W LIVE nie ma już wyborów — tylko znacznik typu <b>MTB • Neutral</b>. Zmiany robisz tutaj i przechodzisz dalej.
     </div>
+
+    <div class="divider"></div>
+
+    <h3 class="h" style="font-size:16px; margin-top:0;">Rower klienta (stan wyjściowy)</h3>
+    <div class="small">Te pola nie zmieniają obliczeń — są tylko do raportu i dla klienta.</div>
+
+    <div class="fieldRow" style="margin-top:10px;">
+      <div>
+        <label>Marka / model (opcjonalnie)</label>
+        <input id="bikeModel" placeholder="np. Specialized Tarmac SL7" />
+      </div>
+      <div>
+        <label>Rozmiar ramy (opcjonalnie)</label>
+        <input id="frameSize" placeholder='np. 54 / M / 19"' />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Długość mostka (mm)</label>
+        <input id="stemLen" type="number" min="40" max="160" placeholder="np. 100" />
+      </div>
+      <div>
+        <label>Kąt mostka (°)</label>
+        <input id="stemAngle" type="number" min="-30" max="30" placeholder="np. -6" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Szer. kierownicy (mm)</label>
+        <input id="barWidth" type="number" min="320" max="520" placeholder="np. 420" />
+      </div>
+      <div>
+        <label>Wys. kierownicy od osi koła (mm)</label>
+        <input id="barHeight" type="number" min="0" max="400" placeholder="np. 210" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Wysokość siodła od suportu (mm)</label>
+        <input id="saddleHeight" type="number" min="500" max="900" placeholder="np. 730" />
+      </div>
+      <div>
+        <label>Setback siodła (mm)</label>
+        <input id="saddleSetback" type="number" min="-50" max="150" placeholder="np. 45" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Kąt siodła (°) (pomiar poziomicą)</label>
+        <input id="saddleTilt" type="number" min="-10" max="10" placeholder="np. -1" />
+      </div>
+      <div>
+        <label>Model siodła (opcjonalnie)</label>
+        <input id="saddleModel" placeholder="np. Fizik Argo" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Długość korby (mm)</label>
+        <input id="crankLen" type="number" min="150" max="190" placeholder="np. 172.5" />
+      </div>
+      <div>
+        <label>Szerokość/Q-factor (opcjonalnie)</label>
+        <input id="qFactor" placeholder="np. 150 / standard" />
+      </div>
+    </div>
+
+    <div class="fieldRow">
+      <div>
+        <label>Bloki: przód/tył (mm)</label>
+        <input id="cleatForeAft" type="number" min="-20" max="20" placeholder="np. +2 / -2" />
+      </div>
+      <div>
+        <label>Bloki: na boki (mm)</label>
+        <input id="cleatLateral" type="number" min="-20" max="20" placeholder="np. +1 / -1" />
+      </div>
+    </div>
+
+    <label>Uwagi / zmiany (opcjonalnie)</label>
+    <textarea id="bikeNotes" placeholder="np. plan: mostek +20mm, siodło -5mm, bloki -2mm..."></textarea>
 
     <div class="navRow">
       <button class="btn" id="backAnthro">← Wróć</button>
@@ -169,6 +229,7 @@
         <button id="editBike" class="btn secondary">Zmień ustawienia</button>
         <button id="startBtn" class="btn primary">Start kamery</button>
         <button id="stopBtn" class="btn">Stop</button>
+        <button id="resetBtn" class="btn">Reset analizy</button>
         <button id="saveShot" class="btn">Zapisz pomiar</button>
         <button id="toReport" class="btn primary">Raport →</button>
       </div>
@@ -223,6 +284,21 @@
 
         <div class="small" style="margin-top:10px">Debug:</div>
         <div id="debug" class="card debug">DBG: gotowe.</div>
+      </div>
+    </div>
+
+    <!-- ✅ RAMKA “DLA KLIENTA” – pełna szerokość pod LIVE -->
+    <div class="card explainFull" id="explainBox" style="margin-top:12px;">
+      <div class="h">Dla klienta: po co to robimy?</div>
+      <div id="explainText" class="small">
+        Podczas korekt szukamy pozycji, która jednocześnie jest <b>wydajna</b> i <b>bezpieczna</b>.
+        Małe zmiany (2–5 mm / kilka stopni) potrafią zmniejszyć przeciążenia i poprawić komfort.
+        <ul class="explainList">
+          <li><b>Wysokość siodła</b> wpływa głównie na obciążenie kolana i pracę mięśni.</li>
+          <li><b>Przód/tył siodła + reach</b> wpływa na barki, dłonie i „garbienie” tułowia.</li>
+          <li><b>Drop / wysokość kokpitu</b> wpływa na oddech i napięcie pleców/szyi.</li>
+        </ul>
+        Zapisz <b>PRZED</b> i <b>PO</b>, żeby w raporcie pokazać różnicę.
       </div>
     </div>
   </section>

@@ -14,6 +14,23 @@ function defaultSession(){
     client: { name:"", date:`${yyyy}-${mm}-${dd}`, notes:"" },
     body: { heightCm:"", inseamCm:"", footCm:"", armsCm:"" },
     bike: { discipline:"road", goal:"neutral" },
+    bikeSetup: {
+      bikeModel:"",
+      frameSize:"",
+      stemLen:"",
+      stemAngle:"",
+      barWidth:"",
+      barHeight:"",
+      saddleModel:"",
+      saddleHeight:"",
+      saddleSetback:"",
+      saddleTilt:"",
+      crankLen:"",
+      qFactor:"",
+      cleatForeAft:"",
+      cleatLateral:"",
+      bikeNotes:""
+    },
     measurements: []
   };
 }
@@ -24,6 +41,7 @@ function loadSession(){
     if(!raw) return defaultSession();
     const s = JSON.parse(raw);
     if(!s || !s.client || !s.body || !s.bike || !Array.isArray(s.measurements)) return defaultSession();
+    if(!s.bikeSetup) s.bikeSetup = defaultSession().bikeSetup;
     return s;
   }catch(e){
     return defaultSession();
@@ -34,7 +52,6 @@ let session = loadSession();
 function saveSession(){
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   updateBadge();
-  updatePresetUI();
 }
 
 function uuid(){
@@ -42,6 +59,9 @@ function uuid(){
 }
 
 function $(id){ return document.getElementById(id); }
+function el(id){ return document.getElementById(id); }
+function setVal(id, v){ const e = el(id); if(e) e.value = (v ?? ""); }
+function on(id, ev, fn){ const e = el(id); if(e) e.addEventListener(ev, fn); }
 
 const STEPS = [
   { id:"client", name:"Klient" },
@@ -74,35 +94,6 @@ function updateBadge(){
   b.textContent = txt;
 }
 
-/* ===== PRESETY UI ===== */
-function fmtRange(r){
-  if(!r || r.length !== 2) return "—";
-  return `${r[0]}–${r[1]}°`;
-}
-
-function updatePresetUI(){
-  const kneeEl  = $("rangeKnee");
-  const elbowEl = $("rangeElbow");
-  const torsoEl = $("rangeTorso");
-  const hintEl  = $("presetHint");
-
-  if(!kneeEl && !elbowEl && !torsoEl && !hintEl) return;
-
-  const p = presets(session.bike.discipline, session.bike.goal);
-
-  if(kneeEl)  kneeEl.textContent  = fmtRange(p.knee);
-  if(elbowEl) elbowEl.textContent = fmtRange(p.elbow);
-  if(torsoEl) torsoEl.textContent = fmtRange(p.torso);
-
-  if(hintEl){
-    hintEl.textContent = `Preset aktywny: ${toLabelDiscipline(session.bike.discipline)} / ${toLabelGoal(session.bike.goal)}.`;
-  }
-
-  // global na przyszłość (PRO / druga kamera)
-  window.BIKEFIT_PRESET = p;
-}
-/* ===== KONIEC PRESETÓW ===== */
-
 /* steps bar */
 function renderStepsBar(){
   const bar = $("stepsBar");
@@ -125,10 +116,6 @@ function showStep(id){
   renderStepsBar();
   updateBadge();
 
-  if(id==="bike"){
-    updatePresetUI();
-  }
-
   if(id==="report"){
     renderReport();
   }
@@ -136,38 +123,65 @@ function showStep(id){
 
 /* bind inputs */
 function bindInputs(){
-  $("clientName").value = session.client.name || "";
-  $("sessionDate").value = session.client.date || "";
-  $("clientNotes").value = session.client.notes || "";
+  // klient
+  setVal("clientName", session.client.name || "");
+  setVal("sessionDate", session.client.date || "");
+  setVal("clientNotes", session.client.notes || "");
 
-  $("heightCm").value = session.body.heightCm || "";
-  $("inseamCm").value = session.body.inseamCm || "";
-  $("footCm").value = session.body.footCm || "";
-  $("armsCm").value = session.body.armsCm || "";
+  on("clientName","input", () => { session.client.name = (el("clientName")?.value || ""); saveSession(); });
+  on("sessionDate","input", () => { session.client.date = (el("sessionDate")?.value || ""); saveSession(); });
+  on("clientNotes","input", () => { session.client.notes = (el("clientNotes")?.value || ""); saveSession(); });
 
-  $("discipline").value = session.bike.discipline || "road";
-  $("goal").value = session.bike.goal || "neutral";
+  // antropometria
+  setVal("heightCm", session.body.heightCm || "");
+  setVal("inseamCm", session.body.inseamCm || "");
+  setVal("footCm", session.body.footCm || "");
+  setVal("armsCm", session.body.armsCm || "");
 
-  $("clientName").addEventListener("input", () => { session.client.name = $("clientName").value; saveSession(); });
-  $("sessionDate").addEventListener("input", () => { session.client.date = $("sessionDate").value; saveSession(); });
-  $("clientNotes").addEventListener("input", () => { session.client.notes = $("clientNotes").value; saveSession(); });
+  on("heightCm","input", () => { session.body.heightCm = (el("heightCm")?.value || ""); saveSession(); });
+  on("inseamCm","input", () => { session.body.inseamCm = (el("inseamCm")?.value || ""); saveSession(); });
+  on("footCm","input", () => { session.body.footCm = (el("footCm")?.value || ""); saveSession(); });
+  on("armsCm","input", () => { session.body.armsCm = (el("armsCm")?.value || ""); saveSession(); });
 
-  $("heightCm").addEventListener("input", () => { session.body.heightCm = $("heightCm").value; saveSession(); });
-  $("inseamCm").addEventListener("input", () => { session.body.inseamCm = $("inseamCm").value; saveSession(); });
-  $("footCm").addEventListener("input", () => { session.body.footCm = $("footCm").value; saveSession(); });
-  $("armsCm").addEventListener("input", () => { session.body.armsCm = $("armsCm").value; saveSession(); });
+  // dyscyplina / cel
+  if(el("discipline")) el("discipline").value = session.bike.discipline || "road";
+  if(el("goal")) el("goal").value = session.bike.goal || "neutral";
 
-  $("discipline").addEventListener("change", () => {
-    session.bike.discipline = $("discipline").value;
-    saveSession();
-  });
+  on("discipline","change", () => { session.bike.discipline = (el("discipline")?.value || "road"); saveSession(); });
+  on("goal","change", () => { session.bike.goal = (el("goal")?.value || "neutral"); saveSession(); });
 
-  $("goal").addEventListener("change", () => {
-    session.bike.goal = $("goal").value;
-    saveSession();
-  });
+  // rower klienta (raport)
+  setVal("bikeModel", session.bikeSetup.bikeModel || "");
+  setVal("frameSize", session.bikeSetup.frameSize || "");
+  setVal("stemLen", session.bikeSetup.stemLen || "");
+  setVal("stemAngle", session.bikeSetup.stemAngle || "");
+  setVal("barWidth", session.bikeSetup.barWidth || "");
+  setVal("barHeight", session.bikeSetup.barHeight || "");
+  setVal("saddleModel", session.bikeSetup.saddleModel || "");
+  setVal("saddleHeight", session.bikeSetup.saddleHeight || "");
+  setVal("saddleSetback", session.bikeSetup.saddleSetback || "");
+  setVal("saddleTilt", session.bikeSetup.saddleTilt || "");
+  setVal("crankLen", session.bikeSetup.crankLen || "");
+  setVal("qFactor", session.bikeSetup.qFactor || "");
+  setVal("cleatForeAft", session.bikeSetup.cleatForeAft || "");
+  setVal("cleatLateral", session.bikeSetup.cleatLateral || "");
+  setVal("bikeNotes", session.bikeSetup.bikeNotes || "");
 
-  updatePresetUI();
+  on("bikeModel","input", () => { session.bikeSetup.bikeModel = (el("bikeModel")?.value || ""); saveSession(); });
+  on("frameSize","input", () => { session.bikeSetup.frameSize = (el("frameSize")?.value || ""); saveSession(); });
+  on("stemLen","input", () => { session.bikeSetup.stemLen = (el("stemLen")?.value || ""); saveSession(); });
+  on("stemAngle","input", () => { session.bikeSetup.stemAngle = (el("stemAngle")?.value || ""); saveSession(); });
+  on("barWidth","input", () => { session.bikeSetup.barWidth = (el("barWidth")?.value || ""); saveSession(); });
+  on("barHeight","input", () => { session.bikeSetup.barHeight = (el("barHeight")?.value || ""); saveSession(); });
+  on("saddleModel","input", () => { session.bikeSetup.saddleModel = (el("saddleModel")?.value || ""); saveSession(); });
+  on("saddleHeight","input", () => { session.bikeSetup.saddleHeight = (el("saddleHeight")?.value || ""); saveSession(); });
+  on("saddleSetback","input", () => { session.bikeSetup.saddleSetback = (el("saddleSetback")?.value || ""); saveSession(); });
+  on("saddleTilt","input", () => { session.bikeSetup.saddleTilt = (el("saddleTilt")?.value || ""); saveSession(); });
+  on("crankLen","input", () => { session.bikeSetup.crankLen = (el("crankLen")?.value || ""); saveSession(); });
+  on("qFactor","input", () => { session.bikeSetup.qFactor = (el("qFactor")?.value || ""); saveSession(); });
+  on("cleatForeAft","input", () => { session.bikeSetup.cleatForeAft = (el("cleatForeAft")?.value || ""); saveSession(); });
+  on("cleatLateral","input", () => { session.bikeSetup.cleatLateral = (el("cleatLateral")?.value || ""); saveSession(); });
+  on("bikeNotes","input", () => { session.bikeSetup.bikeNotes = (el("bikeNotes")?.value || ""); saveSession(); });
 }
 
 /* nav buttons */
@@ -185,23 +199,23 @@ const hintTitle = $("hintTitle");
 const hintText = $("hintText");
 const debugEl = $("debug");
 
-// 🔥 NOWE: pamiętamy ostatnią podpowiedź instruktora (żeby zapisać ją do pomiaru)
-let lastInstructor = { title: "", text: "", ts: 0 };
-
 function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
-
 function setHint(title, text){
   hintTitle.textContent = title;
   hintText.textContent = text;
 
-  // zapamiętujemy dla snapshotu (PRZED/PO)
-  lastInstructor = {
-    title: String(title || ""),
-    text: String(text || ""),
-    ts: Date.now()
-  };
+  // (opcjonalnie) ramka edukacyjna pod LIVE
+  const ex = el("explainText");
+  if(ex){
+    ex.innerHTML = `
+      <div style="margin-bottom:6px;"><b>Aktualnie:</b> ${title}</div>
+      <div>${text}</div>
+      <div style="margin-top:8px; opacity:.9;">
+        Małe korekty (2–5 mm / kilka °) potrafią zmniejszyć przeciążenia. Zapisz <b>PRZED</b> i <b>PO</b>, żeby pokazać różnicę.
+      </div>
+    `;
+  }
 }
-
 function setKpi(which, val){
   if(which==="knee") $("kneeVal").textContent = val;
   if(which==="elbow") $("elbowVal").textContent = val;
@@ -220,6 +234,7 @@ const live = createLiveController({
 
 $("startBtn").addEventListener("click", () => live.start(session));
 $("stopBtn").addEventListener("click", () => live.stop());
+$("resetBtn").addEventListener("click", () => live.reset(session));
 
 function suggestLabel(){
   const n = session.measurements.length;
@@ -234,44 +249,22 @@ $("saveShot").addEventListener("click", () => {
     alert("Nie mam danych do zapisania. Uruchom kamerę i poczekaj aż pojawią się punkty.");
     return;
   }
-
   const img = live.snapshot();
   const label = suggestLabel();
   const ts = Date.now();
-
-  // zapisujemy też preset użyty w tym momencie
-  const p = presets(session.bike.discipline, session.bike.goal);
 
   session.measurements.push({
     id: uuid(),
     ts,
     label,
-
     discipline: session.bike.discipline,
     goal: session.bike.goal,
-
-    // kąty
     knee: m.knee,
     elbow: m.elbow,
     torso: m.torso,
     stab: m.stab,
-
-    // snapshot obrazu
-    imgDataUrl: img,
-
-    // 🔥 NOWE: instruktor przy tym pomiarze
-    instructorTitle: lastInstructor.title || "",
-    instructorText: lastInstructor.text || "",
-    instructorAt: lastInstructor.ts || ts,
-
-    // 🔥 NOWE: progi/preset dla tego pomiaru (żeby raport był spójny nawet po zmianie celu)
-    preset: {
-      knee: p.knee,
-      elbow: p.elbow,
-      torso: p.torso
-    }
+    imgDataUrl: img
   });
-
   saveSession();
   alert("Zapisano pomiar: " + label);
 });

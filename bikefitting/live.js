@@ -38,7 +38,7 @@ export function createLiveController(deps){
     canvasEl.width=w; canvasEl.height=h;
   }
 
-  function draw(results){
+  function draw(results, session){
     ctx.save();
     ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
 
@@ -51,11 +51,142 @@ export function createLiveController(deps){
         { color: "rgba(255,255,255,0.35)", lineWidth: 3 });
       window.drawLandmarks(ctx, results.poseLandmarks,
         { color: "rgba(255,255,255,0.95)", lineWidth: 2, radius: 4 });
+
+      // overlay (informacyjne): łuk pleców + kąt stopy (3 kolory)
+      if(session && session.bike){
+        drawBackArc(ctx, results.poseLandmarks, session);
+        drawFootAngle(ctx, results.poseLandmarks, session);
+      }
     }
     ctx.restore();
   }
 
-  function throttleHint(key, ms=900){
+  
+  // ---- Overlay helpers (informacyjne) ------------------------------------
+  const C_WHITE  = "rgba(255,255,255,0.95)";
+  const C_ORANGE = "rgba(255,165,0,0.95)";
+  const C_RED    = "rgba(255,80,80,0.95)";
+
+  // Progi v1.2 (bez parametru bark–biodro ratio)
+  // Zamiast „długości tułowia” (która bywa niestabilna w 2D), używamy prostych
+  // wskaźników: (1) kąt w biodrze (bark–biodro–kolano) + (2) głowa do przodu (ucho vs bark).
+  // Cel: czerwony ma się pojawiać rzadko (tylko gdy jest realne „zapadanie” + head-forward).
+  const BACK_THRESH = {
+    // hipWarn / hipBad = granice dla kąta w biodrze (mniejsze = „bardziej zwinięte”)
+    // headFwdRatio = próg wysunięcia ucha względem barku (procent szerokości obrazu)
+    road:   { hipWarn: 72, hipBad: 62, headFwdRatio: 0.12 },
+    gravel: { hipWarn: 75, hipBad: 65, headFwdRatio: 0.12 },
+    mtb:    { hipWarn: 78, hipBad: 68, headFwdRatio: 0.12 }
+  };
+
+  // Kąt w stawie skokowym (kolano–kostka–stopa). Wersja 3-kolorowa.
+  // okMin/okMax = biały, warnMin/warnMax = pomarańczowy, poza warn = czerwony
+  const FOOT_THRESH = {
+    // Delikatnie poluzowane progi (mniej „czułe”)
+    road:   { okMin: 75, okMax: 123, warnMin: 68, warnMax: 135 },
+    gravel: { okMin: 75, okMax: 123, warnMin: 68, warnMax: 135 },
+    mtb:    { okMin: 75, okMax: 123, warnMin: 68, warnMax: 135 }
+  };
+
+  function dist(a,b){
+    if(!a||!b) return null;
+    const dx=a.x-b.x, dy=a.y-b.y;
+    return Math.hypot(dx,dy);
+  }
+
+  function pickSide(lm, idxR, idxL){
+    const r=lm[idxR], l=lm[idxL];
+    const vr=r?.visibility??0, vl=l?.visibility??0;
+    return (vr>=vl) ? { side:"r", p:r } : { side:"l", p:l };
+  }
+
+  function drawSegment(ctx, a, b, color, width=6){
+    if(!a||!b) return;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(a.x*canvasEl.width, a.y*canvasEl.height);
+    ctx.lineTo(b.x*canvasEl.width, b.y*canvasEl.height);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawBackArc(ctx, lm, session){
+    const sh = pickSide(lm, 12, 11); // R/L shoulder
+    const hip = pickSide(lm, 24, 23);
+    const knee = pickSide(lm, 26, 25);
+    const ear = (sh.side==="r") ? lm[8] : lm[7]; // R/L ear
+
+    const discipline = session?.bike?.discipline || "road";
+    const th = BACK_THRESH[discipline] || BACK_THRESH.road;
+
+    if(!sh.p || !hip.p || !knee.p) return;
+
+    // Kąt w biodrze (bark–biodro–kolano). Mniejszy = „bardziej zamknięta/zwinięta” pozycja.
+    // Uwaga: to nadal nie jest diagnoza — tylko sygnał wizualny.
+    const hipAng = angleABC(sh.p, hip.p, knee.p);
+    if(!isFinite(hipAng)) return;
+
+    // Head-forward: ucho wyraźnie „przed” barkiem w osi X (proxy do wysuniętej głowy)
+    // W side-view kierunek „przodu” może być lewo/prawo — bierzemy abs() jako bezpieczny sygnał.
+    const headFwd = (ear && (ear.visibility??0)>0.4)
+      ? (Math.abs(ear.x - sh.p.x) > th.headFwdRatio)
+      : false;
+
+    let state = "ok";
+
+    // Strategia: czerwony ma być rzadki.
+    // - "warn" gdy kąt biodra jest poniżej hipWarn LUB sama głowa jest wyraźnie do przodu.
+    // - "bad" dopiero gdy (głowa do przodu) I (kąt biodra bardzo niski).
+    if (headFwd && hipAng < th.hipBad) state = "bad";
+    else if (hipAng < th.hipWarn || headFwd) state = "warn";
+
+    const color = (state==="bad") ? C_RED : (state==="warn" ? C_ORANGE : C_WHITE);
+
+    // „łuk” jako krzywa bark -> biodro
+    const mid = {
+      x: (sh.p.x + hip.p.x)/2,
+      y: (sh.p.y + hip.p.y)/2 - 0.04
+    };
+
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 7;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(hip.p.x*canvasEl.width, hip.p.y*canvasEl.height);
+    ctx.quadraticCurveTo(mid.x*canvasEl.width, mid.y*canvasEl.height,
+                         sh.p.x*canvasEl.width, sh.p.y*canvasEl.height);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function drawFootAngle(ctx, lm, session){
+    const discipline = session?.bike?.discipline || "road";
+    const th = FOOT_THRESH[discipline] || FOOT_THRESH.road;
+
+    const knee = pickSide(lm, 26, 25);
+    const ankle = pickSide(lm, 28, 27);
+    const foot = (knee.side==="r") ? lm[32] : lm[31]; // foot_index
+
+    if(!knee.p || !ankle.p || !foot) return;
+
+    const ankleAng = angleABC(knee.p, ankle.p, foot);
+    if(!isFinite(ankleAng)) return;
+
+    let state="ok";
+    if(ankleAng < th.warnMin || ankleAng > th.warnMax) state="bad";
+    else if(ankleAng < th.okMin || ankleAng > th.okMax) state="warn";
+
+    const color = (state==="bad") ? C_RED : (state==="warn" ? C_ORANGE : C_WHITE);
+
+    drawSegment(ctx, knee.p, ankle.p, color, 6);
+    drawSegment(ctx, ankle.p, foot, color, 6);
+  }
+
+function throttleHint(key, ms=900){
     const now = Date.now();
     if(key !== lastHintKey || (now - lastHintAt) > ms){
       lastHintKey = key;
@@ -204,7 +335,7 @@ export function createLiveController(deps){
 
     pose.onResults((results) => {
       if(videoEl.videoWidth && canvasEl.width === 0) resizeCanvasToVideo();
-      draw(results);
+      draw(results, null);
     });
   }
 
@@ -228,7 +359,7 @@ export function createLiveController(deps){
       // podmieniamy onResults, żeby mieć aktualny session
       pose.onResults((results) => {
         if(videoEl.videoWidth && canvasEl.width === 0) resizeCanvasToVideo();
-        draw(results);
+        draw(results, session);
         computeMetrics(results, session);
       });
 
@@ -261,6 +392,24 @@ export function createLiveController(deps){
     dbg("stop");
   }
 
+  function reset(session){
+    // Bezpieczny reset analizy/kamery: nie czyści sesji ani pomiarów
+    try{ stop(); }catch(_){ }
+
+    lastMetrics = { knee:null, elbow:null, torso:null, stab:null };
+
+    // odpinamy video stream, żeby uniknąć „czarnego ekranu”
+    try{ if(videoEl) videoEl.srcObject = null; }catch(_){ }
+
+    // wymuszamy re-init MediaPipe Pose (czasem pomaga przy zawieszeniu)
+    try{ if(pose && pose.close) pose.close(); }catch(_){ }
+    pose = null;
+
+    setStatus("OFF", false);
+    setHint("Zresetowano", "Kliknij „Start kamery”, aby uruchomić ponownie.");
+    dbg("reset");
+  }
+
   function snapshot(){
     try{ return canvasEl.toDataURL("image/jpeg", 0.85); }
     catch(e){ return null; }
@@ -270,5 +419,5 @@ export function createLiveController(deps){
     return lastMetrics;
   }
 
-  return { start, stop, snapshot, getLastMetrics };
+  return { start, stop, reset, snapshot, getLastMetrics };
 }

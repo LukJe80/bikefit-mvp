@@ -243,3 +243,22 @@ video, canvas{
   border:1px solid rgba(255,255,255,0.12);
   background:#000;
 }
+/* ===== Wyjaśnienie dla klienta (LIVE) ===== */
+.explainFull{ width:100%; }
+.explainBox{
+  margin-top:10px;
+  border:1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.25);
+  border-radius:14px;
+  padding:12px 14px;
+}
+.explainTitle{
+  font-weight:900;
+  color: #bfdbfe;
+  margin-bottom:6px;
+}
+.explainBody{ line-height:1.45; }
+/* ===== explain box (full width under LIVE) ===== */
+.explainFull{ width:100%; }
+.explainList{ margin:8px 0 0 18px; padding:0; }
+.explainList li{ margin:6px 0; }
