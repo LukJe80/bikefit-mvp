@@ -203,18 +203,34 @@ function dbg(msg){ debugEl.textContent = "DBG: " + msg; }
 function setHint(title, text){
   hintTitle.textContent = title;
   hintText.textContent = text;
+}
 
-  // (opcjonalnie) ramka edukacyjna pod LIVE
+// “Tabela dla klienta” pod LIVE: lista aktywnych komunikatów jeden pod drugim.
+function setClientIssues(issues){
   const ex = el("explainText");
-  if(ex){
-    ex.innerHTML = `
-      <div style="margin-bottom:6px;"><b>Aktualnie:</b> ${title}</div>
-      <div>${text}</div>
-      <div style="margin-top:8px; opacity:.9;">
-        Małe korekty (2–5 mm / kilka °) potrafią zmniejszyć przeciążenia. Zapisz <b>PRZED</b> i <b>PO</b>, żeby pokazać różnicę.
+  if(!ex) return;
+
+  if(!Array.isArray(issues) || issues.length===0){
+    ex.innerHTML = "";
+    return;
+  }
+
+  const rows = issues.map((it, idx) => {
+    const n = idx + 1;
+    return `
+      <div style="margin:10px 0; padding:10px 12px; border:1px solid rgba(255,255,255,.12); border-radius:12px;">
+        <div style="font-size:15px; line-height:1.2; margin-bottom:6px;"><b>${n}. ${it.title}</b></div>
+        <div style="font-size:14px; opacity:.95; line-height:1.35;">${it.text}</div>
       </div>
     `;
-  }
+  }).join("");
+
+  ex.innerHTML = `
+    <div style="font-size:14px; opacity:.9; margin-bottom:10px;">
+      <b>Wskazówki (na żywo):</b> ${issues.length} ${issues.length===1 ? "punkt" : "punkty"}
+    </div>
+    ${rows}
+  `;
 }
 function setKpi(which, val){
   if(which==="knee") $("kneeVal").textContent = val;
@@ -229,6 +245,7 @@ const live = createLiveController({
   setStatus,
   dbg,
   setHint,
+  setClientIssues,
   setKpi
 });
 

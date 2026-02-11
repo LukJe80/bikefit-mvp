@@ -38,7 +38,7 @@ export function createLiveController(deps){
     canvasEl.width=w; canvasEl.height=h;
   }
 
-  function draw(results, session){
+  function draw(results){
     ctx.save();
     ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
 
@@ -51,239 +51,140 @@ export function createLiveController(deps){
         { color: "rgba(255,255,255,0.35)", lineWidth: 3 });
       window.drawLandmarks(ctx, results.poseLandmarks,
         { color: "rgba(255,255,255,0.95)", lineWidth: 2, radius: 4 });
-
-      // overlay (informacyjne): łuk pleców + kąt stopy (3 kolory)
-      if(session && session.bike){
-        drawBackArc(ctx, results.poseLandmarks, session);
-        drawFootAngle(ctx, results.poseLandmarks, session);
-      }
     }
     ctx.restore();
   }
 
-  
-  // ---- Overlay helpers (informacyjne) ------------------------------------
-  const C_WHITE  = "rgba(255,255,255,0.95)";
-  const C_ORANGE = "rgba(255,165,0,0.95)";
-  const C_RED    = "rgba(255,80,80,0.95)";
+function throttleInstructor(key, ms=1800){
+  // Instruktor: jeden komunikat, wolniej zmieniany (żeby dało się przeczytać).
+  const now = Date.now();
+  if(key === lastHintKey) return true;
+  if((now - lastHintAt) > ms){
+    lastHintKey = key;
+    lastHintAt = now;
+    return true;
+  }
+  return false;
+}
 
-  // Progi v1.2 (bez parametru bark–biodro ratio)
-  // Zamiast „długości tułowia” (która bywa niestabilna w 2D), używamy prostych
-  // wskaźników: (1) kąt w biodrze (bark–biodro–kolano) + (2) głowa do przodu (ucho vs bark).
-  // Cel: czerwony ma się pojawiać rzadko (tylko gdy jest realne „zapadanie” + head-forward).
-  const BACK_THRESH = {
-    // hipWarn / hipBad = granice dla kąta w biodrze (mniejsze = „bardziej zwinięte”)
-    // headFwdRatio = próg wysunięcia ucha względem barku (procent szerokości obrazu)
-    road:   { hipWarn: 72, hipBad: 62, headFwdRatio: 0.12 },
-    gravel: { hipWarn: 75, hipBad: 65, headFwdRatio: 0.12 },
-    mtb:    { hipWarn: 78, hipBad: 68, headFwdRatio: 0.12 }
-  };
+function setHintSafe(key, title, text){
+  if(throttleInstructor(key)){
+    setHint(title, text);
+  }
+}
 
-  // Kąt w stawie skokowym (kolano–kostka–stopa). Wersja 3-kolorowa.
-  // okMin/okMax = biały, warnMin/warnMax = pomarańczowy, poza warn = czerwony
-  const FOOT_THRESH = {
-    // Delikatnie poluzowane progi (mniej „czułe”)
-    road:   { okMin: 75, okMax: 123, warnMin: 68, warnMax: 135 },
-    gravel: { okMin: 75, okMax: 123, warnMin: 68, warnMax: 135 },
-    mtb:    { okMin: 75, okMax: 123, warnMin: 68, warnMax: 135 }
-  };
+// “Tabela dla klienta” (ramka pod LIVE): pokazujemy WSZYSTKIE aktywne problemy jeden pod drugim.
+let lastClientKeys = "";
+let lastClientAt = 0;
+function setClientIssuesSafe(issues, ms=650){
+  if(typeof deps.setClientIssues !== "function") return;
+  const keys = (issues || []).map(i=>i.key).join("|");
+  const now = Date.now();
+  if(keys !== lastClientKeys && (now - lastClientAt) > ms){
+    lastClientKeys = keys;
+    lastClientAt = now;
+    deps.setClientIssues(issues);
+  }
+}
 
-  function dist(a,b){
-    if(!a||!b) return null;
-    const dx=a.x-b.x, dy=a.y-b.y;
-    return Math.hypot(dx,dy);
+function instructionEngine(session, m){
+  // pobierz progi z presets.js
+  const p = presets(session.bike.discipline, session.bike.goal);
+
+  const issues = [];
+
+  // 0) Stabilność / technikalia
+  if(isFinite(m.stab) && m.stab < 55){
+    issues.push({
+      key: "stab_low",
+      title: "Słaba widoczność punktów",
+      text: `Stabilność ${m.stab}%. Popraw światło, ustaw kadr (biodro–kolano–kostka w widoku), unikaj luźnych ubrań.`,
+      prio: 0
+    });
+
+    // przy słabej stabilności nie dokładamy biomechaniki (będzie losowe)
+    setClientIssuesSafe(issues);
+    setHintSafe("stab_low", issues[0].title, issues[0].text);
+    return;
   }
 
-  function pickSide(lm, idxR, idxL){
-    const r=lm[idxR], l=lm[idxL];
-    const vr=r?.visibility??0, vl=l?.visibility??0;
-    return (vr>=vl) ? { side:"r", p:r } : { side:"l", p:l };
-  }
-
-  function drawSegment(ctx, a, b, color, width=6){
-    if(!a||!b) return;
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(a.x*canvasEl.width, a.y*canvasEl.height);
-    ctx.lineTo(b.x*canvasEl.width, b.y*canvasEl.height);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawBackArc(ctx, lm, session){
-    const sh = pickSide(lm, 12, 11); // R/L shoulder
-    const hip = pickSide(lm, 24, 23);
-    const knee = pickSide(lm, 26, 25);
-    const ear = (sh.side==="r") ? lm[8] : lm[7]; // R/L ear
-
-    const discipline = session?.bike?.discipline || "road";
-    const th = BACK_THRESH[discipline] || BACK_THRESH.road;
-
-    if(!sh.p || !hip.p || !knee.p) return;
-
-    // Kąt w biodrze (bark–biodro–kolano). Mniejszy = „bardziej zamknięta/zwinięta” pozycja.
-    // Uwaga: to nadal nie jest diagnoza — tylko sygnał wizualny.
-    const hipAng = angleABC(sh.p, hip.p, knee.p);
-    if(!isFinite(hipAng)) return;
-
-    // Head-forward: ucho wyraźnie „przed” barkiem w osi X (proxy do wysuniętej głowy)
-    // W side-view kierunek „przodu” może być lewo/prawo — bierzemy abs() jako bezpieczny sygnał.
-    const headFwd = (ear && (ear.visibility??0)>0.4)
-      ? (Math.abs(ear.x - sh.p.x) > th.headFwdRatio)
-      : false;
-
-    let state = "ok";
-
-    // Strategia: czerwony ma być rzadki.
-    // - "warn" gdy kąt biodra jest poniżej hipWarn LUB sama głowa jest wyraźnie do przodu.
-    // - "bad" dopiero gdy (głowa do przodu) I (kąt biodra bardzo niski).
-    if (headFwd && hipAng < th.hipBad) state = "bad";
-    else if (hipAng < th.hipWarn || headFwd) state = "warn";
-
-    const color = (state==="bad") ? C_RED : (state==="warn" ? C_ORANGE : C_WHITE);
-
-    // „łuk” jako krzywa bark -> biodro
-    const mid = {
-      x: (sh.p.x + hip.p.x)/2,
-      y: (sh.p.y + hip.p.y)/2 - 0.04
-    };
-
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 7;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(hip.p.x*canvasEl.width, hip.p.y*canvasEl.height);
-    ctx.quadraticCurveTo(mid.x*canvasEl.width, mid.y*canvasEl.height,
-                         sh.p.x*canvasEl.width, sh.p.y*canvasEl.height);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  function drawFootAngle(ctx, lm, session){
-    const discipline = session?.bike?.discipline || "road";
-    const th = FOOT_THRESH[discipline] || FOOT_THRESH.road;
-
-    const knee = pickSide(lm, 26, 25);
-    const ankle = pickSide(lm, 28, 27);
-    const foot = (knee.side==="r") ? lm[32] : lm[31]; // foot_index
-
-    if(!knee.p || !ankle.p || !foot) return;
-
-    const ankleAng = angleABC(knee.p, ankle.p, foot);
-    if(!isFinite(ankleAng)) return;
-
-    let state="ok";
-    if(ankleAng < th.warnMin || ankleAng > th.warnMax) state="bad";
-    else if(ankleAng < th.okMin || ankleAng > th.okMax) state="warn";
-
-    const color = (state==="bad") ? C_RED : (state==="warn" ? C_ORANGE : C_WHITE);
-
-    drawSegment(ctx, knee.p, ankle.p, color, 6);
-    drawSegment(ctx, ankle.p, foot, color, 6);
-  }
-
-function throttleHint(key, ms=900){
-    const now = Date.now();
-    if(key !== lastHintKey || (now - lastHintAt) > ms){
-      lastHintKey = key;
-      lastHintAt = now;
-      return true;
-    }
-    return false;
-  }
-
-  function setHintSafe(key, title, text){
-    if(throttleHint(key)){
-      setHint(title, text);
+  // 1) Kolano -> siodło
+  if(m.knee != null){
+    if(m.knee < p.knee[0]){
+      issues.push({
+        key:"knee_low",
+        title:"Kolano za mocno zgięte",
+        text:`Kąt kolana ${Math.round(m.knee)}° (poniżej ${p.knee[0]}°). Najczęściej: siodło za nisko. Podnieś 3–5 mm i re-test 10–20 obrotów.`,
+        prio: 1
+      });
+    } else if(m.knee > p.knee[1]){
+      issues.push({
+        key:"knee_high",
+        title:"Kolano za proste",
+        text:`Kąt kolana ${Math.round(m.knee)}° (powyżej ${p.knee[1]}°). Najczęściej: siodło za wysoko. Opuść 3–5 mm i re-test 10–20 obrotów.`,
+        prio: 1
+      });
     }
   }
 
-  function instructionEngine(session, m){
-    // pobierz progi z presets.js
-    const p = presets(session.bike.discipline, session.bike.goal);
-
-    // Jakakolwiek widoczność kiepska -> najpierw “technikalia”
-    if(isFinite(m.stab) && m.stab < 55){
-      setHintSafe(
-        "stab_low",
-        "Słaba widoczność punktów",
-        `Stabilność ${m.stab}%. Popraw światło, ustaw kadr (biodro–kolano–kostka w widoku), unikaj luźnych ubrań.`
-      );
-      return;
+  // 2) Tułów -> wysokość kokpitu (drop)
+  if(m.torso != null){
+    if(m.torso < p.torso[0]){
+      issues.push({
+        key:"torso_low",
+        title:"Tułów zbyt niski / agresywny",
+        text:`Kąt tułowia ${Math.round(m.torso)}° (poniżej ${p.torso[0]}°). Dla celu ${toLabelGoal(session.bike.goal)} rozważ: podnieść kokpit +5–10 mm lub krótszy mostek.`,
+        prio: 2
+      });
+    } else if(m.torso > p.torso[1]){
+      issues.push({
+        key:"torso_high",
+        title:"Tułów zbyt wysoki / zbyt pionowo",
+        text:`Kąt tułowia ${Math.round(m.torso)}° (powyżej ${p.torso[1]}°). Jeśli chcesz bardziej sportowo: obniż kokpit 5–10 mm i sprawdź komfort.`,
+        prio: 2
+      });
     }
+  }
 
-    // 1) Kolano -> siodło
-    if(m.knee != null){
-      if(m.knee < p.knee[0]){
-        setHintSafe(
-          "knee_low",
-          "Kolano za mocno zgięte",
-          `Kąt kolana ${Math.round(m.knee)}° (poniżej ${p.knee[0]}°). Najczęściej: siodło za nisko. Podnieś 3–5 mm i re-test 10–20 obrotów.`
-        );
-        return;
-      }
-      if(m.knee > p.knee[1]){
-        setHintSafe(
-          "knee_high",
-          "Kolano za proste",
-          `Kąt kolana ${Math.round(m.knee)}° (powyżej ${p.knee[1]}°). Najczęściej: siodło za wysoko. Opuść 3–5 mm i re-test 10–20 obrotów.`
-        );
-        return;
-      }
+  // 3) Łokieć -> reach / mostek
+  if(m.elbow != null){
+    if(m.elbow > p.elbow[1]){
+      issues.push({
+        key:"elbow_high",
+        title:"Ręce za proste / reach za duży",
+        text:`Kąt łokcia ${Math.round(m.elbow)}° (powyżej ${p.elbow[1]}°). Test: krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm). Jedna zmiana naraz.`,
+        prio: 3
+      });
+    } else if(m.elbow < p.elbow[0]){
+      issues.push({
+        key:"elbow_low",
+        title:"Ręce mocno ugięte / pozycja zebrana",
+        text:`Kąt łokcia ${Math.round(m.elbow)}° (poniżej ${p.elbow[0]}°). Jeśli to nie cel aero: test dłuższy mostek (+10 mm) albo delikatnie niżej kokpit.`,
+        prio: 3
+      });
     }
+  }
 
-    // 2) Tułów -> wysokość kokpitu (drop)
-    if(m.torso != null){
-      if(m.torso < p.torso[0]){
-        setHintSafe(
-          "torso_low",
-          "Tułów zbyt niski / agresywny",
-          `Kąt tułowia ${Math.round(m.torso)}° (poniżej ${p.torso[0]}°). Dla celu ${toLabelGoal(session.bike.goal)} rozważ: podnieść kokpit +5–10 mm lub krótszy mostek.`
-        );
-        return;
-      }
-      if(m.torso > p.torso[1]){
-        setHintSafe(
-          "torso_high",
-          "Tułów zbyt wysoki / zbyt pionowo",
-          `Kąt tułowia ${Math.round(m.torso)}° (powyżej ${p.torso[1]}°). Jeśli chcesz bardziej sportowo: obniż kokpit 5–10 mm i sprawdź komfort.`
-        );
-        return;
-      }
-    }
-
-    // 3) Łokieć -> reach / mostek
-    if(m.elbow != null){
-      if(m.elbow > p.elbow[1]){
-        setHintSafe(
-          "elbow_high",
-          "Ręce za proste / reach za duży",
-          `Kąt łokcia ${Math.round(m.elbow)}° (powyżej ${p.elbow[1]}°). Test: krótszy mostek (-10 mm) lub wyżej kokpit (+5–10 mm). Jedna zmiana naraz.`
-        );
-        return;
-      }
-      if(m.elbow < p.elbow[0]){
-        setHintSafe(
-          "elbow_low",
-          "Ręce mocno ugięte / pozycja zebrana",
-          `Kąt łokcia ${Math.round(m.elbow)}° (poniżej ${p.elbow[0]}°). Jeśli to nie cel aero: test dłuższy mostek (+10 mm) albo delikatnie niżej kokpit.`
-        );
-        return;
-      }
-    }
-
-    // Jeśli wszystko w normie:
+  // jeśli brak problemów
+  if(issues.length === 0){
     const label = `${toLabelDiscipline(session.bike.discipline)} • ${toLabelGoal(session.bike.goal)}`;
-    setHintSafe(
-      "ok_all",
-      "Wygląda dobrze ✅",
-      `Jesteś w zakresach dla: ${label}. Zapisz „PRZED”, zrób jedną zmianę i zapisz „PO”.`
-    );
+    issues.push({
+      key:"ok_all",
+      title:"Wygląda dobrze ✅",
+      text:`Jesteś w zakresach dla: ${label}. Zapisz „PRZED”, zrób jedną zmianę i zapisz „PO”.`,
+      prio: 99
+    });
   }
+
+  // tabela klienta: wszystkie aktywne
+  issues.sort((a,b)=>a.prio-b.prio);
+  setClientIssuesSafe(issues);
+
+  // instruktor: jeden, najważniejszy (pierwszy po sortowaniu), wolniej zmieniany
+  const top = issues[0];
+  setHintSafe(top.key, top.title, top.text);
+}
+
 
   function computeMetrics(results, session){
     const lm=results.poseLandmarks;
@@ -335,7 +236,7 @@ function throttleHint(key, ms=900){
 
     pose.onResults((results) => {
       if(videoEl.videoWidth && canvasEl.width === 0) resizeCanvasToVideo();
-      draw(results, null);
+      draw(results);
     });
   }
 
@@ -359,7 +260,7 @@ function throttleHint(key, ms=900){
       // podmieniamy onResults, żeby mieć aktualny session
       pose.onResults((results) => {
         if(videoEl.videoWidth && canvasEl.width === 0) resizeCanvasToVideo();
-        draw(results, session);
+        draw(results);
         computeMetrics(results, session);
       });
 
@@ -393,21 +294,26 @@ function throttleHint(key, ms=900){
   }
 
   function reset(session){
-    // Bezpieczny reset analizy/kamery: nie czyści sesji ani pomiarów
-    try{ stop(); }catch(_){ }
+    // Minimalny bezpieczny reset: zatrzymaj stream, wyczyść stan analizy i (opcjonalnie) uruchom ponownie.
+    try{ stop(); }catch(_){ /* noop */ }
 
+    // wyczyść metryki / stan
     lastMetrics = { knee:null, elbow:null, torso:null, stab:null };
 
-    // odpinamy video stream, żeby uniknąć „czarnego ekranu”
-    try{ if(videoEl) videoEl.srcObject = null; }catch(_){ }
-
-    // wymuszamy re-init MediaPipe Pose (czasem pomaga przy zawieszeniu)
-    try{ if(pose && pose.close) pose.close(); }catch(_){ }
+    // wymuś ponowną inicjalizację MediaPipe Pose (czasem pomaga po "zawiechu")
+    try{ if(pose && pose.close) pose.close(); }catch(_){ /* noop */ }
     pose = null;
 
+    try{ videoEl.pause(); }catch(_){ }
+    try{ videoEl.srcObject = null; }catch(_){ }
+
+    ctx.clearRect(0,0,canvasEl.width,canvasEl.height);
     setStatus("OFF", false);
     setHint("Zresetowano", "Kliknij „Start kamery”, aby uruchomić ponownie.");
     dbg("reset");
+
+    // Jeśli chcesz automatycznie wystartować po resecie, odkomentuj linię poniżej:
+    // if(session) start(session);
   }
 
   function snapshot(){
