@@ -31,7 +31,8 @@ function defaultSession(){
       cleatLateral:"",
       bikeNotes:""
     },
-    measurements: []
+    measurements: [],
+    diagnostics: []
   };
 }
 
@@ -42,6 +43,7 @@ function loadSession(){
     const s = JSON.parse(raw);
     if(!s || !s.client || !s.body || !s.bike || !Array.isArray(s.measurements)) return defaultSession();
     if(!s.bikeSetup) s.bikeSetup = defaultSession().bikeSetup;
+    if(!Array.isArray(s.diagnostics)) s.diagnostics = [];
     return s;
   }catch(e){
     return defaultSession();
@@ -68,6 +70,7 @@ const STEPS = [
   { id:"anthro", name:"Antropometria" },
   { id:"bike", name:"Bike / Dyscyplina" },
   { id:"live", name:"Bikefitting LIVE" },
+  { id:"measure", name:"Pomiary" },
   { id:"report", name:"Raport" }
 ];
 let currentStep = "client";
@@ -115,6 +118,10 @@ function showStep(id){
   }
   renderStepsBar();
   updateBadge();
+
+  if(id==="measure"){
+    renderMeasure();
+  }
 
   if(id==="report"){
     renderReport();
@@ -285,6 +292,118 @@ $("saveShot").addEventListener("click", () => {
   saveSession();
   alert("Zapisano pomiar: " + label);
 });
+
+/* Snapshot → Pomiary (warsztat) */
+function diagLabel(){
+  const n = session.diagnostics.length + 1;
+  return "SNAP " + n;
+}
+
+$("toMeasure").addEventListener("click", () => {
+  const m = live.getLastMetrics();
+  if(!m || (!isFinite(m.stab) && m.knee==null)){
+    alert("Nie mam danych do snapshotu. Uruchom kamerę i poczekaj aż pojawią się punkty.");
+    return;
+  }
+  const img = live.snapshot();
+  const ts = Date.now();
+  session.diagnostics.push({
+    id: uuid(),
+    ts,
+    label: diagLabel(),
+    discipline: session.bike.discipline,
+    goal: session.bike.goal,
+    knee: m.knee,
+    elbow: m.elbow,
+    torso: m.torso,
+    stab: m.stab,
+    imgDataUrl: img
+  });
+  saveSession();
+  showStep("measure");
+});
+
+$("mBackToLive").addEventListener("click", () => showStep("live"));
+$("mClearDiag").addEventListener("click", () => {
+  if(!confirm("Wyczyścić pomiary (snapshoty) z kalkulatora?")) return;
+  session.diagnostics = [];
+  saveSession();
+  renderMeasure();
+});
+
+function fmt(v){
+  if(v==null || !isFinite(v)) return "—";
+  return Math.round(v) + "°";
+}
+
+function renderMeasure(){
+  const last = session.diagnostics[session.diagnostics.length-1];
+  const imgEl = $("mImg");
+  const emptyEl = $("mEmpty");
+  const metaEl = $("mMeta");
+  const tableEl = $("mTable");
+  if(!last){
+    if(imgEl) imgEl.style.display = "none";
+    if(emptyEl) emptyEl.style.display = "";
+    if(metaEl) metaEl.textContent = "";
+    if(tableEl) tableEl.textContent = "";
+    return;
+  }
+  if(imgEl){
+    imgEl.src = last.imgDataUrl || "";
+    imgEl.style.display = last.imgDataUrl ? "" : "none";
+  }
+  if(emptyEl) emptyEl.style.display = "none";
+  const discTxt = toLabelDiscipline(last.discipline);
+  const goalTxt = toLabelGoal(last.goal);
+  const dt = new Date(last.ts);
+  if(metaEl){
+    metaEl.innerHTML = `<b>${last.label}</b> • ${discTxt} • ${goalTxt}<br>${dt.toLocaleString()}`;
+  }
+
+  // orientacyjne statusy wg presetów (bez mm)
+  const p = presets(last.discipline, last.goal);
+  const lines = [];
+  if(p){
+    if(isFinite(last.knee)){
+      const min = p.knee?.[0], max = p.knee?.[1];
+      if(isFinite(min) && last.knee < min) lines.push(`Kolano: ${fmt(last.knee)} • poza zakresem (za mało)`);
+      else if(isFinite(max) && last.knee > max) lines.push(`Kolano: ${fmt(last.knee)} • poza zakresem (za dużo)`);
+      else lines.push(`Kolano: ${fmt(last.knee)} • OK`);
+    } else {
+      lines.push(`Kolano: —`);
+    }
+
+    if(isFinite(last.elbow)){
+      const min = p.elbow?.[0], max = p.elbow?.[1];
+      if(isFinite(min) && last.elbow < min) lines.push(`Łokieć: ${fmt(last.elbow)} • poza zakresem (za mało)`);
+      else if(isFinite(max) && last.elbow > max) lines.push(`Łokieć: ${fmt(last.elbow)} • poza zakresem (za dużo)`);
+      else lines.push(`Łokieć: ${fmt(last.elbow)} • OK`);
+    } else {
+      lines.push(`Łokieć: —`);
+    }
+
+    if(isFinite(last.torso)){
+      const min = p.torso?.[0], max = p.torso?.[1];
+      if(isFinite(min) && last.torso < min) lines.push(`Tułów: ${fmt(last.torso)} • poza zakresem (za pionowo)`);
+      else if(isFinite(max) && last.torso > max) lines.push(`Tułów: ${fmt(last.torso)} • poza zakresem (za agresywnie)`);
+      else lines.push(`Tułów: ${fmt(last.torso)} • OK`);
+    } else {
+      lines.push(`Tułów: —`);
+    }
+  } else {
+    lines.push("Brak presetów dla tego profilu.");
+    lines.push(`Kolano: ${fmt(last.knee)}`);
+    lines.push(`Łokieć: ${fmt(last.elbow)}`);
+    lines.push(`Tułów: ${fmt(last.torso)}`);
+  }
+  lines.push(`Stabilność: ${isFinite(last.stab) ? Math.round(last.stab) + "%" : "—"}`);
+
+  if(tableEl){
+    tableEl.innerHTML = lines.map(s => "• " + s).join("<br>");
+  }
+}
+
 
 /* Report */
 function renderReport(){

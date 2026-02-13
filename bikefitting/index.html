@@ -231,6 +231,7 @@
         <button id="stopBtn" class="btn">Stop</button>
         <button id="resetBtn" class="btn secondary">Reset analizy</button>
         <button id="saveShot" class="btn">Zapisz pomiar</button>
+        <button id="toMeasure" class="btn secondary">Snapshot → Pomiary</button>
         <button id="toReport" class="btn primary">Raport →</button>
       </div>
     </div>
@@ -289,7 +290,7 @@
 
     <!-- ✅ RAMKA “DLA KLIENTA” – pełna szerokość pod LIVE -->
     <div class="card explainFull" id="explainBox" style="margin-top:12px;">
-      <div class="h">Dla klienta: po co to robimy?</div>
+      <div class="h">Szczegółowe wskazówki</div>
       <div id="explainText" class="small">
         Podczas korekt szukamy pozycji, która jednocześnie jest <b>wydajna</b> i <b>bezpieczna</b>.
         Małe zmiany (2–5 mm / kilka stopni) potrafią zmniejszyć przeciążenia i poprawić komfort.
@@ -303,7 +304,38 @@
     </div>
   </section>
 
+  
   <!-- KROK 5 -->
+  <section class="card step" id="step-measure" style="display:none;">
+    <h2 class="h">Pomiary / Kalkulator</h2>
+
+    <div class="small">
+      To jest tryb warsztatowy (dla Ciebie). Snapshot z LIVE trafia tutaj do szybkiej analizy orientacyjnej (bez milimetrów).
+    </div>
+
+    <div class="grid" style="margin-top:12px;">
+      <div class="card">
+        <div class="h">Snapshot</div>
+        <div class="videoWrap" style="height:auto;">
+          <img id="mImg" alt="snapshot" style="width:100%; border-radius:14px; display:none;" />
+        </div>
+        <div id="mEmpty" class="small" style="margin-top:8px;">Brak snapshotu. W LIVE kliknij „Snapshot → Pomiary”.</div>
+      </div>
+
+      <div class="card">
+        <div class="h">Wyniki</div>
+        <div id="mMeta" class="small"></div>
+        <div id="mTable" class="card debug" style="margin-top:10px;"></div>
+
+        <div class="liveBtns" style="margin-top:12px;">
+          <button id="mBackToLive" class="btn secondary">← Wróć do LIVE</button>
+          <button id="mClearDiag" class="btn">Wyczyść pomiary</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+<!-- KROK 5 -->
   <section class="card step" id="step-report" style="display:none;">
     <h2 class="h">Raport</h2>
 
