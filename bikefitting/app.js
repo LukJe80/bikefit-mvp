@@ -51,6 +51,10 @@ function loadSession(){
 }
 let session = loadSession();
 
+let measureSelectedId = null;
+let measureCompareAId = null;
+let measureCompareBId = null;
+
 function saveSession(){
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
   updateBadge();
@@ -287,7 +291,8 @@ $("saveShot").addEventListener("click", () => {
     elbow: m.elbow,
     torso: m.torso,
     stab: m.stab,
-    imgDataUrl: img
+    imgDataUrl: img,
+    body: Object.assign({}, (session && session.body) ? session.body : {})
   });
   saveSession();
   alert("Zapisano pomiar: " + label);
@@ -307,8 +312,9 @@ $("toMeasure").addEventListener("click", () => {
   }
   const img = live.snapshot();
   const ts = Date.now();
+  const __sid = uuid();
   session.diagnostics.push({
-    id: uuid(),
+    id: __sid,
     ts,
     label: diagLabel(),
     discipline: session.bike.discipline,
@@ -317,8 +323,10 @@ $("toMeasure").addEventListener("click", () => {
     elbow: m.elbow,
     torso: m.torso,
     stab: m.stab,
-    imgDataUrl: img
+    imgDataUrl: img,
+    body: Object.assign({}, (session && session.body) ? session.body : {})
   });
+  measureSelectedId = __sid;
   saveSession();
   showStep("measure");
 });
@@ -327,6 +335,7 @@ $("mBackToLive").addEventListener("click", () => showStep("live"));
 $("mClearDiag").addEventListener("click", () => {
   if(!confirm("Wyczyścić pomiary (snapshoty) z kalkulatora?")) return;
   session.diagnostics = [];
+  measureSelectedId = null;
   saveSession();
   renderMeasure();
 });
@@ -337,72 +346,355 @@ function fmt(v){
 }
 
 function renderMeasure(){
-  const last = session.diagnostics[session.diagnostics.length-1];
   const imgEl = $("mImg");
   const emptyEl = $("mEmpty");
   const metaEl = $("mMeta");
   const tableEl = $("mTable");
-  if(!last){
+  const calcEl = $("mCalc");
+  const anthroEl = $("mAnthro");
+  const anthroCalcEl = $("mAnthroCalc");
+  const listEl = $("mList");
+
+  const all = session.diagnostics || [];
+  // wybór aktywnego snapshotu (premium lista)
+  let current = null;
+  if(measureSelectedId){
+    current = all.find(s => s.id === measureSelectedId) || null;
+  }
+  if(!current) current = all[all.length-1] || null;
+
+  // brak danych
+  if(!current){
     if(imgEl) imgEl.style.display = "none";
     if(emptyEl) emptyEl.style.display = "";
     if(metaEl) metaEl.textContent = "";
     if(tableEl) tableEl.textContent = "";
+    if(calcEl) calcEl.textContent = "";
+    if(anthroEl) anthroEl.textContent = "";
+    if(anthroCalcEl) anthroCalcEl.textContent = "";
+    if(listEl) listEl.innerHTML = "";
     return;
   }
+
+  // snapshot
   if(imgEl){
-    imgEl.src = last.imgDataUrl || "";
-    imgEl.style.display = last.imgDataUrl ? "" : "none";
+    imgEl.src = current.imgDataUrl || "";
+    imgEl.style.display = current.imgDataUrl ? "" : "none";
   }
   if(emptyEl) emptyEl.style.display = "none";
-  const discTxt = toLabelDiscipline(last.discipline);
-  const goalTxt = toLabelGoal(last.goal);
-  const dt = new Date(last.ts);
+
+  const discTxt = toLabelDiscipline(current.discipline);
+  const goalTxt = toLabelGoal(current.goal);
+  const dt = new Date(current.ts);
   if(metaEl){
-    metaEl.innerHTML = `<b>${last.label}</b> • ${discTxt} • ${goalTxt}<br>${dt.toLocaleString()}`;
+    metaEl.innerHTML = `<b>${current.label}</b> • ${discTxt} • ${goalTxt}<br>${dt.toLocaleString()}`;
   }
 
   // orientacyjne statusy wg presetów (bez mm)
-  const p = presets(last.discipline, last.goal);
+  const p = presets(current.discipline, current.goal);
   const lines = [];
+
+  function badgeClassFrom(val, min, max){
+    if(!isFinite(val) || !isFinite(min) || !isFinite(max)) return "";
+    if(val < min || val > max) return "bad";
+    return "ok";
+  }
+
   if(p){
-    if(isFinite(last.knee)){
+    if(isFinite(current.knee)){
       const min = p.knee?.[0], max = p.knee?.[1];
-      if(isFinite(min) && last.knee < min) lines.push(`Kolano: ${fmt(last.knee)} • poza zakresem (za mało)`);
-      else if(isFinite(max) && last.knee > max) lines.push(`Kolano: ${fmt(last.knee)} • poza zakresem (za dużo)`);
-      else lines.push(`Kolano: ${fmt(last.knee)} • OK`);
-    } else {
-      lines.push(`Kolano: —`);
+      if(isFinite(min) && current.knee < min) lines.push(`Kolano: ${fmt(current.knee)} • poza zakresem (za mało)`);
+      else if(isFinite(max) && current.knee > max) lines.push(`Kolano: ${fmt(current.knee)} • poza zakresem (za dużo)`);
+      else lines.push(`Kolano: ${fmt(current.knee)} • OK`);
     }
-
-    if(isFinite(last.elbow)){
+    if(isFinite(current.elbow)){
       const min = p.elbow?.[0], max = p.elbow?.[1];
-      if(isFinite(min) && last.elbow < min) lines.push(`Łokieć: ${fmt(last.elbow)} • poza zakresem (za mało)`);
-      else if(isFinite(max) && last.elbow > max) lines.push(`Łokieć: ${fmt(last.elbow)} • poza zakresem (za dużo)`);
-      else lines.push(`Łokieć: ${fmt(last.elbow)} • OK`);
-    } else {
-      lines.push(`Łokieć: —`);
+      if(isFinite(min) && current.elbow < min) lines.push(`Łokieć: ${fmt(current.elbow)} • poza zakresem (za mało)`);
+      else if(isFinite(max) && current.elbow > max) lines.push(`Łokieć: ${fmt(current.elbow)} • poza zakresem (za dużo)`);
+      else lines.push(`Łokieć: ${fmt(current.elbow)} • OK`);
     }
-
-    if(isFinite(last.torso)){
+    if(isFinite(current.torso)){
       const min = p.torso?.[0], max = p.torso?.[1];
-      if(isFinite(min) && last.torso < min) lines.push(`Tułów: ${fmt(last.torso)} • poza zakresem (za pionowo)`);
-      else if(isFinite(max) && last.torso > max) lines.push(`Tułów: ${fmt(last.torso)} • poza zakresem (za agresywnie)`);
-      else lines.push(`Tułów: ${fmt(last.torso)} • OK`);
-    } else {
-      lines.push(`Tułów: —`);
+      if(isFinite(min) && current.torso < min) lines.push(`Tułów: ${fmt(current.torso)} • poza zakresem (za pionowo)`);
+      else if(isFinite(max) && current.torso > max) lines.push(`Tułów: ${fmt(current.torso)} • poza zakresem (za agresywnie)`);
+      else lines.push(`Tułów: ${fmt(current.torso)} • OK`);
     }
   } else {
+    // fallback: zawsze pokaż surowe kąty
+    if(isFinite(current.knee)) lines.push(`Kolano: ${fmt(current.knee)}`);
+    if(isFinite(current.elbow)) lines.push(`Łokieć: ${fmt(current.elbow)}`);
+    if(isFinite(current.torso)) lines.push(`Tułów: ${fmt(current.torso)}`);
     lines.push("Brak presetów dla tego profilu.");
-    lines.push(`Kolano: ${fmt(last.knee)}`);
-    lines.push(`Łokieć: ${fmt(last.elbow)}`);
-    lines.push(`Tułów: ${fmt(last.torso)}`);
   }
-  lines.push(`Stabilność: ${isFinite(last.stab) ? Math.round(last.stab) + "%" : "—"}`);
+
+  if(isFinite(current.stab)) lines.push(`Stabilność: ${Math.round(current.stab)}%`);
 
   if(tableEl){
-    tableEl.innerHTML = lines.map(s => "• " + s).join("<br>");
+    tableEl.innerHTML = lines.map(t=>`<div>• ${t}</div>`).join("");
   }
+
+  // Kalkulator orientacyjny (bez mm) – dla fitera
+  if(calcEl){
+    const hints = [];
+    const pills = [];
+
+    // krótkie pigułki statusów
+    if(p){
+      if(isFinite(current.knee) && Array.isArray(p.knee)){
+        const [mn,mx]=p.knee;
+        const cls = (isFinite(mn)&&current.knee<mn)||(isFinite(mx)&&current.knee>mx) ? "bad":"ok";
+        pills.push(`<span class="pill ${cls}">Kolano</span>`);
+        if(isFinite(mn) && current.knee < mn) hints.push("Kolano (BDC) za mocno zgięte: sprawdź wysokość siodła (możliwe: za nisko) oraz czy biodro nie jest „zamknięte” (np. zbyt długa korba / duży drop).");
+        else if(isFinite(mx) && current.knee > mx) hints.push("Kolano (BDC) zbyt wyprostowane: sprawdź wysokość siodła (możliwe: za wysoko).");
+      }
+      if(isFinite(current.elbow) && Array.isArray(p.elbow)){
+        const [mn,mx]=p.elbow;
+        const cls = (isFinite(mn)&&current.elbow<mn)||(isFinite(mx)&&current.elbow>mx) ? "bad":"ok";
+        pills.push(`<span class="pill ${cls}">Łokieć</span>`);
+        if(isFinite(mn) && current.elbow < mn) hints.push("Łokieć mocno ugięty: sprawdź reach (mostek/kierownica) i czy pozycja nie jest zbyt „zebrana” (często: reach za długi lub drop za duży).");
+        else if(isFinite(mx) && current.elbow > mx) hints.push("Łokieć zbyt prosty: sprawdź reach (często: reach za krótki / za daleko odsunięty tułów).");
+      }
+      if(isFinite(current.torso) && Array.isArray(p.torso)){
+        const [mn,mx]=p.torso;
+        const cls = (isFinite(mn)&&current.torso<mn)||(isFinite(mx)&&current.torso>mx) ? "bad":"ok";
+        pills.push(`<span class="pill ${cls}">Tułów</span>`);
+        // Uwaga: w tej aplikacji mniejszy kąt = bardziej pionowo, większy = bardziej agresywnie
+        if(isFinite(mn) && current.torso < mn) hints.push("Tułów zbyt pionowo: sprawdź czy kokpit nie jest za wysoko / reach za krótki (możliwe: brakuje „sięgnięcia” do przodu).");
+        else if(isFinite(mx) && current.torso > mx) hints.push("Tułów zbyt agresywnie: sprawdź drop (kierownica za nisko) lub reach (za długi).");
+      }
+    }
+
+    const bike = (session && session.bikeSetup) ? session.bikeSetup : {};
+    const bikeLineParts = [];
+    if(bike.crankLen) bikeLineParts.push(`Korba: ${bike.crankLen} mm`);
+    if(bike.saddleHeight) bikeLineParts.push(`Siodło: ${bike.saddleHeight} mm`);
+    if(bike.saddleSetback) bikeLineParts.push(`Setback: ${bike.saddleSetback} mm`);
+    if(bike.stemLen) bikeLineParts.push(`Mostek: ${bike.stemLen} mm`);
+    if(bike.barHeight) bikeLineParts.push(`Kokpit: ${bike.barHeight} mm`);
+
+    const bikeLine = bikeLineParts.length ? `<div class="small" style="margin-bottom:10px;">${bikeLineParts.map(t=>`<span class="pill">${t}</span>`).join(" ")}</div>` : "";
+
+    const body = hints.length
+      ? hints.map(t=>`<div class="calcItem">• ${t}</div>`).join("")
+      : `<div class="calcItem">Brak dodatkowych uwag – według presetów wygląda OK.</div>`;
+
+    calcEl.innerHTML = bikeLine + (pills.length?(`<div style="margin-bottom:10px;">${pills.join(" ")}</div>`):"") + body + `<div class="calcNote">To jest orientacyjna diagnoza (bez milimetrów). Zapisz snapshoty PRZED/PO i weryfikuj zmianę po jeździe.</div>`;
+  }
+
+  // lista snapshotów (czytelna)
+  if(listEl){
+    listEl.innerHTML = all.map(s=>{
+      const d = new Date(s.ts);
+      const time = d.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+      const disc = toLabelDiscipline(s.discipline);
+      const goal = toLabelGoal(s.goal);
+      const p2 = presets(s.discipline, s.goal);
+
+      function mkBadge(name, val, rng){
+        if(!p2 || !isFinite(val) || !rng) return `<span class="snapBadge">${name}: ${isFinite(val)?fmt(val):"-"}</span>`;
+        const min=rng[0], max=rng[1];
+        let cls="ok";
+        if(isFinite(min) && val < min) cls="bad";
+        else if(isFinite(max) && val > max) cls="bad";
+        return `<span class="snapBadge ${cls}">${name}: ${fmt(val)}</span>`;
+      }
+
+      const kneeB = mkBadge("Kolano", s.knee, p2?.knee);
+      const torsoB = mkBadge("Tułów", s.torso, p2?.torso);
+      const stabB = `<span class="snapBadge">${isFinite(s.stab)?("Stab: "+Math.round(s.stab)+"%"):"Stab: -"}</span>`;
+
+      const active = (current && s.id===current.id) ? "active" : "";
+      return `
+        <div class="snapRow ${active}" data-sid="${s.id}">
+          <div class="snapRowTop">
+            <div class="snapRowTitle">${s.label}</div>
+            <div class="snapRowMeta">${time}</div>
+          </div>
+          <div class="snapRowSub">${disc} • ${goal}</div>
+          <div class="snapBadges">
+            ${kneeB}
+            ${torsoB}
+            ${stabB}
+          </div>
+        </div>`;
+    }).join("");
+
+    Array.from(listEl.querySelectorAll(".snapRow")).forEach(el=>{
+      el.addEventListener("click", ()=>{
+        measureSelectedId = el.getAttribute("data-sid");
+        renderMeasure();
+      });
+    });
+  }
+
+
+
+  // ===== ANTHRO_PREVIEW_BOX_V3 =====
+  // Dane klienta (Antropometria) – tylko podgląd (nie wpływa na obliczenia)
+  if(anthroEl){
+    const b = (current && current.body) ? current.body : ((session && session.body) ? session.body : {});
+    const v = (x) => (x !== undefined && x !== null && String(x).trim() !== "") ? String(x).trim() : "—";
+    anthroEl.innerHTML =
+      '<div>• Wzrost: <b>' + v(b.heightCm) + ' cm</b></div>' +
+      '<div>• Przekrok: <b>' + v(b.inseamCm) + ' cm</b></div>' +
+      '<div>• Ramiona: <b>' + v(b.armsCm) + ' cm</b></div>' +
+      '<div class="muted" style="margin-top:8px;">Podgląd danych: dla tego snapshotu (jeśli zapisane) lub z kroku Antropometria. Nie zmienia wyników kątów ani presetów.</div>';
+  }
+  
+  
+  // ===== ANTHRO_WORKSHOP_BOX_V1 =====
+  // Wzorzec (orientacyjnie) – warsztatowe podpowiedzi na podstawie antropometrii (nie wpływa na wyniki)
+  if(anthroCalcEl){
+    const b = (current && current.body) ? current.body : ((session && session.body) ? session.body : {});
+    const num = (x) => {
+      const n = parseFloat(String(x||"").replace(",", "."));
+      return isFinite(n) ? n : null;
+    };
+    const h = num(b.heightCm);
+    const i = num(b.inseamCm);
+
+    // 1) Wysokość siodła – klasyczny wzorzec (LeMond ~0.883 * przekrok) jako punkt startowy
+    let saddleTxt = "• Wysokość siodła (BB→szczyt): —";
+    if(i){
+      const mm = Math.round(i * 0.883 * 10); // cm -> mm
+      saddleTxt = `• Wysokość siodła (BB→szczyt): <b>${mm} mm</b> (start) • zakres testu: ±10 mm`;
+    }
+
+    // 2) Długość korby – orientacyjnie (zakres)
+    let crankTxt = "• Długość korby: —";
+    if(i){
+      let rec = 172.5;
+      if(i < 75) rec = 165;
+      else if(i < 80) rec = 170;
+      else if(i < 86) rec = 172.5;
+      else rec = 175;
+      crankTxt = `• Długość korby: <b>${rec} mm</b> (orientacyjnie) • zakres: ${rec-2.5}–${rec+2.5} mm`;
+    }
+
+    // 3) Drop kierownicy – zależnie od profilu (bez mierzenia, tylko zakres)
+    const disc = (current && current.discipline) ? current.discipline : (session?.bike?.discipline || "road");
+    const goal = (current && current.goal) ? current.goal : (session?.bike?.goal || "neutral");
+
+    const dropRanges = {
+      road:    { comfort:"0–60 mm", neutral:"40–90 mm", aero:"70–130 mm" },
+      gravel:  { comfort:"0–50 mm", neutral:"20–70 mm", aero:"40–90 mm" },
+      mtb:     { comfort:"0–40 mm", neutral:"0–50 mm",  aero:"10–60 mm" }
+    };
+    const drop = (dropRanges[disc] && dropRanges[disc][goal]) ? dropRanges[disc][goal] : "—";
+    const dropTxt = `• Drop (siodło→kierownica): <b>${drop}</b> (zakres dla profilu)`;
+
+    // 4) Szybkie przypomnienie: to nie jest „ustaw na sztywno”
+    const note = `
+      <div class="muted" style="margin-top:8px;">
+        To są <b>wzorce startowe</b> (warsztat). Ustawiasz, robisz SNAP, korygujesz i weryfikujesz w jeździe.
+        Nie zmienia wyników LIVE ani raportu.
+      </div>`;
+
+    anthroCalcEl.innerHTML = `
+      <div>${saddleTxt}</div>
+      <div>${crankTxt}</div>
+      <div>${dropTxt}</div>
+      ${note}
+    `;
+  }
+renderMeasureCompare(all, current);
 }
+
+
+function renderMeasureCompare(all, current){
+  const selA = $("mCmpA");
+  const selB = $("mCmpB");
+  const out = $("mCmpOut");
+  if(!selA || !selB || !out){
+    return;
+  }
+
+  // gdy brak danych
+  if(!Array.isArray(all) || all.length === 0){
+    selA.innerHTML = "";
+    selB.innerHTML = "";
+    out.innerHTML = "<div class='small muted'>Brak snapshotów do porównania.</div>";
+    measureCompareAId = null;
+    measureCompareBId = null;
+    return;
+  }
+
+  // domyślne wybory: ostatnie dwa
+  const last = all[all.length-1];
+  const prev = all.length > 1 ? all[all.length-2] : all[all.length-1];
+
+  // jeśli nie ustawione lub nie istnieją już, ustaw sensownie
+  const exists = (id) => all.some(s => s.id === id);
+  if(!measureCompareBId || !exists(measureCompareBId)) measureCompareBId = last.id;
+  if(!measureCompareAId || !exists(measureCompareAId)) measureCompareAId = prev.id;
+
+  // Jeśli A == B i mamy >=2, ustaw A na poprzedni
+  if(measureCompareAId === measureCompareBId && all.length > 1){
+    measureCompareAId = prev.id;
+    if(measureCompareAId === measureCompareBId){
+      measureCompareAId = all[0].id;
+    }
+  }
+
+  // opcje selectów
+  const optHtml = all.map(s=>{
+    const dt = new Date(s.ts);
+    const t = dt.toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    const disc = toLabelDiscipline(s.discipline);
+    const goal = toLabelGoal(s.goal);
+    return `<option value="${s.id}">${s.label} • ${t} • ${disc}/${goal}</option>`;
+  }).join("");
+
+  selA.innerHTML = optHtml;
+  selB.innerHTML = optHtml;
+
+  selA.value = measureCompareAId;
+  selB.value = measureCompareBId;
+
+  // eventy (jednorazowo)
+  if(!selA.__bound){
+    selA.addEventListener("change", ()=>{
+      measureCompareAId = selA.value;
+      renderMeasure();
+    });
+    selA.__bound = true;
+  }
+  if(!selB.__bound){
+    selB.addEventListener("change", ()=>{
+      measureCompareBId = selB.value;
+      renderMeasure();
+    });
+    selB.__bound = true;
+  }
+
+  const A = all.find(s=>s.id===measureCompareAId) || prev;
+  const B = all.find(s=>s.id===measureCompareBId) || last;
+
+  function deltaLine(label, a, b, unit){
+    if(!isFinite(a) || !isFinite(b)) return `<div>• ${label}: —</div>`;
+    const d = b - a;
+    const sign = d > 0 ? "+" : "";
+    const cls = Math.abs(d) >= 4 ? "bad" : "ok";
+    return `<div>• <b>${label}</b>: ${fmt(a)} → ${fmt(b)} <span class="snapBadge ${cls}">${sign}${Math.round(d)}${unit||""}</span></div>`;
+  }
+
+  const rows = [];
+  rows.push(`<div class="small muted" style="margin-bottom:6px;">Porównanie: <b>${A.label}</b> → <b>${B.label}</b></div>`);
+  rows.push(deltaLine("Kolano", A.knee, B.knee, "°"));
+  rows.push(deltaLine("Łokieć", A.elbow, B.elbow, "°"));
+  rows.push(deltaLine("Tułów", A.torso, B.torso, "°"));
+  if(isFinite(A.stab) && isFinite(B.stab)){
+    const d = Math.round(B.stab - A.stab);
+    const sign = d>0?"+":"";
+    const cls = Math.abs(d) >= 5 ? "bad" : "ok";
+    rows.push(`<div>• <b>Stabilność</b>: ${Math.round(A.stab)}% → ${Math.round(B.stab)}% <span class="snapBadge ${cls}">${sign}${d}%</span></div>`);
+  } else {
+    rows.push(`<div>• <b>Stabilność</b>: —</div>`);
+  }
+
+  out.innerHTML = rows.join("");
+}
+
 
 
 /* Report */

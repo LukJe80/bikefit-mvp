@@ -320,12 +320,40 @@
           <img id="mImg" alt="snapshot" style="width:100%; border-radius:14px; display:none;" />
         </div>
         <div id="mEmpty" class="small" style="margin-top:8px;">Brak snapshotu. W LIVE kliknij „Snapshot → Pomiary”.</div>
+        <div class="h" style="margin-top:14px;">Historia snapshotów</div>
+        <div id="mList" class="snapList"></div>
       </div>
 
       <div class="card">
         <div class="h">Wyniki</div>
         <div id="mMeta" class="small"></div>
         <div id="mTable" class="card debug" style="margin-top:10px;"></div>
+
+        <div class="h" style="margin-top:14px;">Kalkulator (orientacyjnie)</div>
+        <div id="mCalc" class="calcBox small"></div>
+
+          <div class="h" style="margin-top:14px;">Dane klienta (Antropometria)</div>
+          <div id="mAnthro" class="card workshop-pro" style="margin-top:10px;"></div>
+        
+        <div class="h" style="margin-top:14px;">Wzorzec (orientacyjnie) – z antropometrii</div>
+        <div id="mAnthroCalc" class="card workshop-pro" style="margin-top:10px;"></div>
+
+
+
+        <div class="h" style="margin-top:14px;">Porównanie snapshotów (A vs B)</div>
+        <div class="compareRow" style="margin-top:8px;">
+          <div class="compareCol">
+            <div class="small muted">Snapshot A</div>
+            <select id="mCmpA" class="select"></select>
+          </div>
+          <div class="compareMid small muted">vs</div>
+          <div class="compareCol">
+            <div class="small muted">Snapshot B</div>
+            <select id="mCmpB" class="select"></select>
+          </div>
+        </div>
+        <div id="mCmpOut" class="card debug" style="margin-top:10px;"></div>
+
 
         <div class="liveBtns" style="margin-top:12px;">
           <button id="mBackToLive" class="btn secondary">← Wróć do LIVE</button>

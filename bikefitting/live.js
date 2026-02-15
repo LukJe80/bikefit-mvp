@@ -1,3 +1,30 @@
+
+
+// ===== BDC_LOCK_PRO_V1 =====
+let ankleHistory = [];
+let bdcFrames = 0;
+let BDC_LOCK = false;
+let lastValidBDCKneeAngle = null;
+const BDC_TOLERANCE_PX = 6;
+const BDC_REQUIRED_FRAMES = 5;
+
+function updateBDC(ankleY){
+  ankleHistory.push(ankleY);
+  if(ankleHistory.length > 12) ankleHistory.shift();
+
+  const maxY = Math.max(...ankleHistory);
+  const isNearBottom = ankleY >= (maxY - BDC_TOLERANCE_PX);
+
+  if(isNearBottom){
+    bdcFrames++;
+    if(bdcFrames >= BDC_REQUIRED_FRAMES){
+      BDC_LOCK = true;
+    }
+  } else {
+    bdcFrames = 0;
+    BDC_LOCK = false;
+  }
+}
 import { presets, toLabelDiscipline, toLabelGoal } from "./presets.js";
 
 export function createLiveController(deps){
@@ -135,13 +162,13 @@ export function createLiveController(deps){
       if(!p) return;
       const P=p2c(p);
       ctx.beginPath();
-      ctx.arc(P.x,P.y,4,0,Math.PI*2);
+      ctx.arc(P.x,P.y,5,0,Math.PI*2);
       ctx.fill();
     }
 
     ctx.save();
     ctx.strokeStyle = "rgba(255,255,255,0.35)";
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4;
     line(pts.shoulder, pts.elbow);
     line(pts.elbow, pts.wrist);
     line(pts.shoulder, pts.hip);
